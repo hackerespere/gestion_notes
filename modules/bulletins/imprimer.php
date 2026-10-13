@@ -1,0 +1,161 @@
+<?php
+require_once '../../config/database.php';
+
+$database = new Database();
+$db = $database->getConnection();
+
+$eleve_id = isset($_GET['eleve_id']) ? $_GET['eleve_id'] : null;
+$trimestre_id = isset($_GET['trimestre_id']) ? $_GET['trimestre_id'] : null;
+
+if(!$eleve_id || !$trimestre_id) {
+    die('Paramètres manquants');
+}
+
+// Fonction pour générer le bulletin (identique à index.php)
+function generateBulletin($db, $id_eleve, $id_trimestre) {
+    $query = "SELECT e.*, c.nom_classe, c.niveau 
+              FROM eleve e 
+              JOIN classe c ON e.id_classe = c.id_classe 
+              WHERE e.id_eleve = :id";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(':id', $id_eleve);
+    $stmt->execute();
+    $eleve = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $query = "SELECT n.*, m.nom_matiere, m.coef 
+              FROM note n
+              JOIN obtenir o ON n.id_note = o.id_note
+              JOIN porter_sur ps ON n.id_note = ps.id_note
+              JOIN matiere m ON ps.id_matiere = m.id_matiere
+              JOIN durant d ON n.id_note = d.id_note
+              WHERE o.id_eleve = :id_eleve AND d.id_trimestre = :id_trimestre";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(':id_eleve', $id_eleve);
+    $stmt->bindParam(':id_trimestre', $id_trimestre);
+    $stmt->execute();
+    $notes = $stmt->fetchAll();
+
+    $matieres = [];
+    foreach($notes as $note) {
+        $matiere = $note['nom_matiere'];
+        if(!isset($matieres[$matiere])) {
+            $matieres[$matiere] = ['total' => 0, 'count' => 0, 'coef' => $note['coef']];
+        }
+        $matieres[$matiere]['total'] += $note['valeur'];
+        $matieres[$matiere]['count']++;
+    }
+
+    $moyenne_generale = 0;
+    $total_coef = 0;
+    foreach($matieres as $matiere => $data) {
+        $moy = $data['total'] / $data['count'];
+        $moyenne_generale += $moy * $data['coef'];
+        $total_coef += $data['coef'];
+    }
+    if($total_coef > 0) {
+        $moyenne_generale /= $total_coef;
+    }
+
+    return [
+        'eleve' => $eleve,
+        'notes' => $notes,
+        'matieres' => $matieres,
+        'moyenne_generale' => $moyenne_generale
+    ];
+}
+
+$bulletin_data = generateBulletin($db, $eleve_id, $trimestre_id);
+
+// Pour une version PDF simple, on utilise la fonction print CSS
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Bulletin - <?php echo $bulletin_data['eleve']['nom']; ?></title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #2c3e50; }
+        .info { margin-bottom: 20px; }
+        .info table { width: 100%; }
+        .info td { padding: 5px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #3498db; color: white; padding: 10px; }
+        td { padding: 8px; border: 1px solid #ddd; }
+        .moyenne { font-weight: bold; background-color: #f8f9fa; }
+        @media print {
+            .no-print { display: none; }
+            .header h1 { color: black; }
+            th { background-color: #ccc; color: black; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BULLETIN SCOLAIRE</h1>
+        <h3><?php echo $bulletin_data['eleve']['nom'] . ' ' . $bulletin_data['eleve']['prenom']; ?></h3>
+    </div>
+
+    <div class="info">
+        <table>
+            <tr>
+                <td><strong>Classe :</strong> <?php echo $bulletin_data['eleve']['nom_classe']; ?></td>
+                <td><strong>Niveau :</strong> <?php echo $bulletin_data['eleve']['niveau']; ?></td>
+            </tr>
+            <tr>
+                <td><strong>Date de naissance :</strong> <?php echo date('d/m/Y', strtotime($bulletin_data['eleve']['date_naiss'])); ?></td>
+                <td><strong>Trimestre :</strong> <?php echo $trimestre_id; ?></td>
+            </tr>
+        </table>
+    </div>
+
+    <h4>Résultats</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Matière</th>
+                <th>Notes</th>
+                <th>Moyenne</th>
+                <th>Coef</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            foreach($bulletin_data['matieres'] as $matiere => $data):
+                $moy = $data['total'] / $data['count'];
+                $notes_list = array_filter($bulletin_data['notes'], function($n) use ($matiere) {
+                    return $n['nom_matiere'] == $matiere;
+                });
+                $notes_str = [];
+                foreach($notes_list as $n) {
+                    $notes_str[] = $n['valeur'];
+                }
+            ?>
+            <tr>
+                <td><?php echo $matiere; ?></td>
+                <td><?php echo implode(' - ', $notes_str); ?></td>
+                <td><?php echo number_format($moy, 2); ?></td>
+                <td><?php echo $data['coef']; ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr class="moyenne">
+                <td colspan="3"><strong>Moyenne générale</strong></td>
+                <td><strong><?php echo number_format($bulletin_data['moyenne_generale'], 2); ?></strong></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="no-print" style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px;">Imprimer</button>
+        <button onclick="window.close()" style="padding: 10px 30px; font-size: 16px;">Fermer</button>
+    </div>
+
+    <script>
+        // Auto-print
+        window.onload = function() {
+            // window.print();
+        }
+    </script>
+</body>
+</html>

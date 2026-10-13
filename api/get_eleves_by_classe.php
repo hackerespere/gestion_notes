@@ -1,0 +1,22 @@
+<?php
+header('Content-Type: application/json');
+require_once '../config/database.php';
+
+$database = new Database();
+$db = $database->getConnection();
+
+$classe_id = isset($_GET['classe_id']) ? $_GET['classe_id'] : null;
+
+if(!$classe_id) {
+    echo json_encode([]);
+    exit;
+}
+
+$query = "SELECT id_eleve, nom, prenom FROM eleve WHERE id_classe = :id_classe ORDER BY nom";
+$stmt = $db->prepare($query);
+$stmt->bindParam(':id_classe', $classe_id);
+$stmt->execute();
+$eleves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+echo json_encode($eleves);
+?>
