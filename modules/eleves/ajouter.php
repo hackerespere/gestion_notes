@@ -40,10 +40,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $sexe = $_POST['sexe'];
     $adresse = htmlspecialchars(trim($_POST['adresse']));
     $id_classe = $_POST['id_classe'] ?: null;
-    $telephone = htmlspecialchars(trim($_POST['telephone'] ?? ''));
-    $email = htmlspecialchars(trim($_POST['email'] ?? ''));
-    $nom_parent = htmlspecialchars(trim($_POST['nom_parent'] ?? ''));
-    $telephone_parent = htmlspecialchars(trim($_POST['telephone_parent'] ?? ''));
 
     // Validation
     $errors = [];
@@ -66,9 +62,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     if(empty($sexe)) {
         $errors['sexe'] = "Le sexe est obligatoire.";
-    }
-    if(!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors['email'] = "L'adresse email n'est pas valide.";
     }
     
     if(empty($errors)) {
@@ -117,7 +110,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-if($edit_mode && $eleve_data) {
+// Pré-remplir en mode édition (sauf si le formulaire a été renvoyé avec des erreurs)
+if($edit_mode && $eleve_data && empty($form_data)) {
     $form_data = $eleve_data;
 }
 
@@ -301,64 +295,6 @@ if(!empty($form_data['date_naiss'])) {
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="telephone" class="form-label">Téléphone</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                                        <input type="tel" class="form-control" id="telephone" name="telephone" 
-                                               value="<?php echo htmlspecialchars($form_data['telephone'] ?? ''); ?>"
-                                               placeholder="Numéro de téléphone">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="email" class="form-label">Email</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                                        <input type="email" class="form-control <?php echo isset($errors['email']) ? 'is-invalid' : ''; ?>" 
-                                               id="email" name="email" 
-                                               value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>"
-                                               placeholder="adresse@email.com">
-                                        <?php if(isset($errors['email'])): ?>
-                                            <div class="invalid-feedback"><?php echo $errors['email']; ?></div>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Parents / Tuteurs -->
-                    <div class="form-section mt-4">
-                        <div class="form-section-title">
-                            <i class="bi bi-people"></i>
-                            Parents / Tuteurs
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="nom_parent" class="form-label">Nom du parent/tuteur</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                                        <input type="text" class="form-control" id="nom_parent" name="nom_parent" 
-                                               value="<?php echo htmlspecialchars($form_data['nom_parent'] ?? ''); ?>"
-                                               placeholder="Nom du parent">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="telephone_parent" class="form-label">Téléphone parent</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text"><i class="bi bi-telephone"></i></span>
-                                        <input type="tel" class="form-control" id="telephone_parent" name="telephone_parent" 
-                                               value="<?php echo htmlspecialchars($form_data['telephone_parent'] ?? ''); ?>"
-                                               placeholder="Téléphone du parent">
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -439,18 +375,6 @@ if(!empty($form_data['date_naiss'])) {
                     <li>
                         <i class="bi bi-check-circle text-success"></i>
                         <span>Vous pouvez affecter l'élève à une classe maintenant ou plus tard</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-check-circle text-success"></i>
-                        <span>Les coordonnées des parents sont optionnelles mais recommandées</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-check-circle text-success"></i>
-                        <span>L'email doit être une adresse valide</span>
-                    </li>
-                    <li>
-                        <i class="bi bi-check-circle text-success"></i>
-                        <span>Le téléphone doit être au format <strong>XX XX XX XX XX</strong></span>
                     </li>
                 </ul>
             </div>

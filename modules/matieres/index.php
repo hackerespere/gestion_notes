@@ -250,11 +250,14 @@ function buildUrl($page, $per_page = null) {
                            class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-eye"></i> Voir
                         </a>
-                        <a href="supprimer.php?id=<?php echo $matiere['id_matiere']; ?>" 
-                           class="btn btn-sm btn-outline-danger"
-                           onclick="return confirm('Confirmer la suppression de cette matière ?')">
-                            <i class="bi bi-trash"></i>
-                        </a>
+                        <form method="post" action="supprimer.php" class="d-inline m-0"
+                              onsubmit="return confirm('Confirmer la suppression de cette matière ?')">
+                            <?php echo csrfField(); ?>
+                            <input type="hidden" name="id" value="<?php echo (int) $matiere['id_matiere']; ?>">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>

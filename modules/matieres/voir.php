@@ -453,11 +453,14 @@ $repartition_colors = [
                     <a href="../notes/index.php?matiere=<?php echo $id_matiere; ?>" class="btn btn-outline-primary">
                         <i class="bi bi-pencil"></i> Voir toutes les notes
                     </a>
-                    <a href="supprimer.php?id=<?php echo $id_matiere; ?>" 
-                       class="btn btn-outline-danger"
-                       onclick="return confirm('Confirmer la suppression de cette matière ?')">
-                        <i class="bi bi-trash"></i> Supprimer
-                    </a>
+                    <form method="post" action="supprimer.php" class="d-inline m-0"
+                          onsubmit="return confirm('Confirmer la suppression de cette matière ?')">
+                        <?php echo csrfField(); ?>
+                        <input type="hidden" name="id" value="<?php echo (int) $id_matiere; ?>">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> Supprimer
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

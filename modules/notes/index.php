@@ -313,11 +313,14 @@ if($total_notes > 0) {
                             </td>
                             <td><?php echo date('d/m/Y', strtotime($note['date_note'])); ?></td>
                             <td>
-                                <a href="supprimer.php?id=<?php echo $note['id_note']; ?>" 
-                                   class="btn btn-sm btn-outline-danger" 
-                                   onclick="return confirm('Confirmer la suppression de cette note ?')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                <form method="post" action="supprimer.php" class="d-inline m-0"
+                                      onsubmit="return confirm('Confirmer la suppression de cette note ?')">
+                                    <?php echo csrfField(); ?>
+                                    <input type="hidden" name="id" value="<?php echo (int) $note['id_note']; ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         <?php endforeach; ?>

@@ -95,8 +95,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Si en mode édition, pré-remplir les données
-if($edit_mode && $classe_data) {
+// Si en mode édition, pré-remplir les données (sauf si le formulaire a été renvoyé avec des erreurs)
+if($edit_mode && $classe_data && empty($form_data)) {
     $form_data = $classe_data;
 }
 

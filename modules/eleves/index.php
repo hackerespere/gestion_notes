@@ -464,15 +464,18 @@ function buildUrl($page, $per_page = null) {
                                        class="btn btn-sm btn-outline-primary" title="Voir les notes">
                                         <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="../bulletins/imprimer.php?eleve_id=<?php echo $eleve['id_eleve']; ?>" 
-                                       class="btn btn-sm btn-outline-success" title="Bulletin">
+                                    <a href="voir.php?id=<?php echo $eleve['id_eleve']; ?>"
+                                       class="btn btn-sm btn-outline-success" title="Fiche et bulletins">
                                         <i class="bi bi-file-text"></i>
                                     </a>
-                                    <a href="supprimer.php?id=<?php echo $eleve['id_eleve']; ?>" 
-                                       class="btn btn-sm btn-outline-danger" title="Supprimer"
-                                       onclick="return confirm('Confirmer la suppression de cet élève ?')">
-                                        <i class="bi bi-trash"></i>
-                                    </a>
+                                    <form method="post" action="supprimer.php" class="d-inline m-0"
+                                          onsubmit="return confirm('Confirmer la suppression de cet élève ? Ses notes seront aussi supprimées.')">
+                                        <?php echo csrfField(); ?>
+                                        <input type="hidden" name="id" value="<?php echo (int) $eleve['id_eleve']; ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

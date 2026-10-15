@@ -7,7 +7,8 @@ CREATE TABLE classe (
     id_classe INT PRIMARY KEY AUTO_INCREMENT,
     nom_classe VARCHAR(50) NOT NULL,
     niveau VARCHAR(20) NOT NULL,
-    anne_scolaire VARCHAR(20) NOT NULL
+    anne_scolaire VARCHAR(20) NOT NULL,
+    description TEXT NULL
 );
 
 -- Table ELEVE

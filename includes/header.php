@@ -767,6 +767,16 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
         </div>
     </nav>
 
+    <?php $flash = function_exists('getFlash') ? getFlash() : null; ?>
+    <?php if ($flash): ?>
+    <div class="container mt-3">
+        <div class="alert alert-<?php echo htmlspecialchars($flash['type']); ?> alert-dismissible fade show" role="alert">
+            <?php echo htmlspecialchars($flash['message']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <script>
     // ========================================
     // CONFIGURATION GLOBALE (passée par PHP)

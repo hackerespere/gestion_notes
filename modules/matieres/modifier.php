@@ -369,11 +369,14 @@ $total_notes = $db->query("SELECT COUNT(*) as total FROM porter_sur WHERE id_mat
                 <span class="text-danger">Zone de danger</span>
             </div>
             <div class="sidebar-card-body">
-                <a href="supprimer.php?id=<?php echo $id_matiere; ?>" 
-                   class="btn btn-danger w-100"
-                   onclick="return confirm('Confirmer la suppression définitive de cette matière ?')">
-                    <i class="bi bi-trash"></i> Supprimer cette matière
-                </a>
+                <form method="post" action="supprimer.php" class="m-0"
+                      onsubmit="return confirm('Confirmer la suppression définitive de cette matière ?')">
+                    <?php echo csrfField(); ?>
+                    <input type="hidden" name="id" value="<?php echo (int) $id_matiere; ?>">
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="bi bi-trash"></i> Supprimer cette matière
+                    </button>
+                </form>
                 <small class="text-muted d-block mt-2 text-center">
                     <i class="bi bi-exclamation-circle"></i> Cette action est irréversible
                 </small>

@@ -1,0 +1,226 @@
+<?php
+require_once '../../config/session.php';
+require_once '../../config/database.php';
+
+checkAuth();
+
+$database = new Database();
+$db = $database->getConnection();
+
+$id_classe = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$id_trimestre = isset($_GET['trimestre']) ? (int) $_GET['trimestre'] : 0;
+
+// Récupérer la classe (avant toute sortie HTML, pour pouvoir rediriger)
+$stmt = $db->prepare("SELECT * FROM classe WHERE id_classe = :id");
+$stmt->execute([':id' => $id_classe]);
+$classe = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$classe) {
+    setFlash('warning', 'Classe introuvable.');
+    header('Location: index.php');
+    exit;
+}
+
+$trimestres = $db->query("SELECT id_trimestre, libelle FROM trimestre ORDER BY id_trimestre")->fetchAll(PDO::FETCH_ASSOC);
+
+// Élèves de la classe
+$stmt = $db->prepare("SELECT id_eleve, nom, prenom, sexe, date_naiss
+                      FROM eleve WHERE id_classe = :id ORDER BY nom, prenom");
+$stmt->execute([':id' => $id_classe]);
+$eleves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Notes des élèves de la classe (filtrées par trimestre si choisi)
+$sql = "SELECT o.id_eleve, n.valeur, m.nom_matiere, m.coef
+        FROM eleve e
+        JOIN obtenir o     ON o.id_eleve = e.id_eleve
+        JOIN note n        ON n.id_note = o.id_note
+        JOIN porter_sur ps ON ps.id_note = n.id_note
+        JOIN matiere m     ON m.id_matiere = ps.id_matiere
+        JOIN durant d      ON d.id_note = n.id_note
+        WHERE e.id_classe = :id"
+     . ($id_trimestre > 0 ? " AND d.id_trimestre = :tri" : "");
+$stmt = $db->prepare($sql);
+$stmt->bindValue(':id', $id_classe, PDO::PARAM_INT);
+if ($id_trimestre > 0) {
+    $stmt->bindValue(':tri', $id_trimestre, PDO::PARAM_INT);
+}
+$stmt->execute();
+
+// Regrouper par élève puis par matière
+$notes_par_eleve = [];
+foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $notes_par_eleve[$row['id_eleve']][$row['nom_matiere']]['coef'] = $row['coef'];
+    $notes_par_eleve[$row['id_eleve']][$row['nom_matiere']]['valeurs'][] = $row['valeur'];
+}
+
+// Moyenne générale de chaque élève : moyenne par matière pondérée par les coefficients
+$moyennes = [];
+$nb_notes = [];
+foreach ($notes_par_eleve as $id_eleve => $matieres) {
+    $somme = 0;
+    $total_coef = 0;
+    $nb_notes[$id_eleve] = 0;
+    foreach ($matieres as $matiere) {
+        $somme += (array_sum($matiere['valeurs']) / count($matiere['valeurs'])) * $matiere['coef'];
+        $total_coef += $matiere['coef'];
+        $nb_notes[$id_eleve] += count($matiere['valeurs']);
+    }
+    $moyennes[$id_eleve] = $total_coef > 0 ? $somme / $total_coef : null;
+}
+
+// Statistiques de la classe
+$nb_eleves = count($eleves);
+$nb_filles = count(array_filter($eleves, fn($e) => $e['sexe'] === 'F'));
+$moyenne_classe = count($moyennes) > 0 ? array_sum($moyennes) / count($moyennes) : null;
+$nb_admis = count(array_filter($moyennes, fn($m) => $m >= 10));
+
+// Rang des élèves notés (meilleure moyenne = 1)
+$classement = $moyennes;
+arsort($classement);
+$rangs = array_flip(array_keys($classement));
+
+require_once '../../includes/header.php';
+?>
+
+<!-- En-tête de la page -->
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="page-title">
+                <span class="title-icon"><i class="bi bi-building"></i></span>
+                <?php echo htmlspecialchars($classe['nom_classe']); ?>
+            </h1>
+            <p class="page-subtitle text-muted">
+                Niveau <?php echo htmlspecialchars($classe['niveau']); ?> · Année <?php echo htmlspecialchars($classe['anne_scolaire']); ?>
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="../eleves/ajouter.php" class="btn btn-dark">
+                <i class="bi bi-person-plus"></i> Ajouter un élève
+            </a>
+            <a href="modifier.php?id=<?php echo (int) $classe['id_classe']; ?>" class="btn btn-outline-secondary">
+                <i class="bi bi-pencil"></i> Modifier
+            </a>
+            <a href="index.php" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card voir-card stat-card"><span class="text-muted">Élèves</span><strong><?php echo $nb_eleves; ?></strong></div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card voir-card stat-card"><span class="text-muted">Filles / Garçons</span><strong><?php echo $nb_filles; ?> / <?php echo $nb_eleves - $nb_filles; ?></strong></div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card voir-card stat-card"><span class="text-muted">Moyenne de la classe</span>
+            <strong><?php echo $moyenne_classe !== null ? number_format($moyenne_classe, 2) . '/20' : '—'; ?></strong>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card voir-card stat-card"><span class="text-muted">Moyenne ≥ 10</span>
+            <strong><?php echo count($moyennes) > 0 ? $nb_admis . ' / ' . count($moyennes) : '—'; ?></strong>
+        </div>
+    </div>
+</div>
+
+<?php if (!empty($classe['description'])): ?>
+    <div class="card voir-card mb-4">
+        <div class="card-body"><?php echo nl2br(htmlspecialchars($classe['description'])); ?></div>
+    </div>
+<?php endif; ?>
+
+<!-- Liste des élèves -->
+<div class="card voir-card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-people"></i> Élèves de la classe</span>
+        <form method="get" class="d-flex gap-2 m-0">
+            <input type="hidden" name="id" value="<?php echo (int) $classe['id_classe']; ?>">
+            <select name="trimestre" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="0">Tous les trimestres</option>
+                <?php foreach ($trimestres as $t): ?>
+                    <option value="<?php echo (int) $t['id_trimestre']; ?>" <?php echo $id_trimestre == $t['id_trimestre'] ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($t['libelle']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </form>
+    </div>
+
+    <?php if (empty($eleves)): ?>
+        <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-people fs-1 d-block mb-2"></i>
+            Aucun élève dans cette classe.
+        </div>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Élève</th>
+                        <th>Sexe</th>
+                        <th>Notes</th>
+                        <th>Moyenne</th>
+                        <th>Rang</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($eleves as $eleve): $id = $eleve['id_eleve']; ?>
+                        <tr>
+                            <td>
+                                <a href="../eleves/voir.php?id=<?php echo (int) $id; ?>">
+                                    <?php echo htmlspecialchars($eleve['nom'] . ' ' . $eleve['prenom']); ?>
+                                </a>
+                            </td>
+                            <td><?php echo $eleve['sexe'] === 'F' ? 'F' : 'M'; ?></td>
+                            <td><?php echo $nb_notes[$id] ?? 0; ?></td>
+                            <td>
+                                <?php if (isset($moyennes[$id])): ?>
+                                    <span class="fw-semibold <?php echo $moyennes[$id] >= 10 ? 'text-success' : 'text-danger'; ?>">
+                                        <?php echo number_format($moyennes[$id], 2); ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo isset($rangs[$id]) ? ($rangs[$id] + 1) . ' / ' . count($moyennes) : '—'; ?></td>
+                            <td class="text-end">
+                                <a href="../eleves/voir.php?id=<?php echo (int) $id; ?>" class="btn btn-sm btn-outline-secondary" title="Voir">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="../notes/saisir.php?eleve_id=<?php echo (int) $id; ?>" class="btn btn-sm btn-outline-secondary" title="Saisir une note">
+                                    <i class="bi bi-plus-circle"></i>
+                                </a>
+                                <?php if ($id_trimestre > 0 && isset($moyennes[$id])): ?>
+                                    <a href="../bulletins/imprimer.php?eleve_id=<?php echo (int) $id; ?>&trimestre_id=<?php echo $id_trimestre; ?>"
+                                       class="btn btn-sm btn-outline-secondary" title="Imprimer le bulletin" target="_blank">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<style>
+.page-header { margin-bottom: 32px; }
+.page-title { font-size: 1.65rem; font-weight: 700; display: flex; align-items: center; gap: 12px; margin: 0; }
+.title-icon { width: 44px; height: 44px; border-radius: 12px; background: #111827; color: #fff;
+              display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+.page-subtitle { margin: 6px 0 0; }
+.voir-card { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
+.voir-card .card-header { background: #f9fafb; font-weight: 600; }
+.stat-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.stat-card strong { font-size: 1.35rem; }
+</style>
+
+<?php require_once '../../includes/footer.php'; ?>

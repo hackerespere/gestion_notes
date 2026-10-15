@@ -57,6 +57,47 @@ function checkAuth() {
     $_SESSION['last_activity'] = time();
 }
 
+// Jeton CSRF de la session (créé à la première demande)
+function csrfToken() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Champ caché à placer dans chaque formulaire POST
+function csrfField() {
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(csrfToken()) . '">';
+}
+
+// Vérifier le jeton CSRF envoyé par un formulaire POST
+function verifyCsrf() {
+    $token = $_POST['csrf_token'] ?? '';
+    return !empty($_SESSION['csrf_token']) && is_string($token)
+        && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+// Pour les actions sensibles (suppression...) : exiger POST + jeton CSRF valide,
+// sinon rediriger vers $redirect avec un message d'erreur
+function requirePostWithCsrf($redirect) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrf()) {
+        setFlash('danger', 'Requête invalide ou expirée. Veuillez réessayer.');
+        header('Location: ' . $redirect);
+        exit;
+    }
+}
+
+// Message affiché une seule fois après une redirection (type : success, danger, warning)
+function setFlash($type, $message) {
+    $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+}
+
+function getFlash() {
+    $flash = $_SESSION['flash'] ?? null;
+    unset($_SESSION['flash']);
+    return $flash;
+}
+
 // Fonction de déconnexion
 function logout() {
     // Supprimer toutes les variables de session
