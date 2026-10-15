@@ -580,6 +580,13 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             Mes notes
                         </a>
                     </li>
+                    <?php elseif (hasRole(ROLE_PARENT)): ?>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="<?php echo BASE_URL; ?>modules/espace_parent/index.php">
+                            <i class="bi bi-people-fill"></i>
+                            Mes enfants
+                        </a>
+                    </li>
                     <?php else: ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"
@@ -639,6 +646,10 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                                 <i class="bi bi-plus-circle"></i> Ajouter une matière
                             </a></li>
                             <?php endif; ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/enseignants/index.php">
+                                <i class="bi bi-person-badge"></i> Enseignants
+                            </a></li>
                         </ul>
                     </li>
 
@@ -708,11 +719,8 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                                 <div class="header-name"><?php echo htmlspecialchars($user_name); ?></div>
                                 <div class="header-email"><?php echo htmlspecialchars($user_email); ?></div>
                             </div>
-                            <a class="dropdown-item" href="<?php echo BASE_URL; ?>profile.php">
+                            <a class="dropdown-item" href="<?php echo BASE_URL; ?>profil.php">
                                 <i class="bi bi-person"></i> Mon profil
-                            </a>
-                            <a class="dropdown-item" href="<?php echo BASE_URL; ?>settings.php">
-                                <i class="bi bi-gear"></i> Paramètres
                             </a>
                             <?php if (hasRole(ROLES_PEDAGOGIE)): ?>
                             <a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/notes/index.php">
@@ -742,9 +750,6 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                 <div class="navbar-right">
                     <a href="<?php echo BASE_URL; ?>login.php" class="btn-login-nav btn-outline">
                         <i class="bi bi-box-arrow-in-right"></i> Connexion
-                    </a>
-                    <a href="<?php echo BASE_URL; ?>register.php" class="btn-login-nav btn-primary-nav">
-                        <i class="bi bi-person-plus"></i> Inscription
                     </a>
                 </div>
                 <?php endif; ?>

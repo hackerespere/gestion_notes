@@ -140,9 +140,11 @@ $repartition_colors = [
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
+            <?php if (hasRole(ROLES_GESTION)): ?>
             <a href="modifier.php?id=<?php echo $id_matiere; ?>" class="btn btn-dark">
                 <i class="bi bi-pencil"></i> Modifier
             </a>
+            <?php endif; ?>
             <a href="index.php" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Retour
             </a>
@@ -433,9 +435,11 @@ $repartition_colors = [
                     <div class="empty-state-mini">
                         <i class="bi bi-person-x"></i>
                         <p>Aucun enseignant affecté</p>
-                        <a href="modifier.php?id=<?php echo $id_matiere; ?>" class="btn btn-dark btn-sm">
-                            <i class="bi bi-plus-circle"></i> Ajouter
+                        <?php if (hasRole(ROLES_GESTION)): ?>
+                        <a href="../enseignants/index.php" class="btn btn-dark btn-sm">
+                            <i class="bi bi-plus-circle"></i> Affecter un enseignant
                         </a>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -449,12 +453,15 @@ $repartition_colors = [
             </div>
             <div class="sidebar-card-body">
                 <div class="d-grid gap-2">
+                    <?php if (hasRole(ROLES_GESTION)): ?>
                     <a href="modifier.php?id=<?php echo $id_matiere; ?>" class="btn btn-dark">
                         <i class="bi bi-pencil"></i> Modifier la matière
                     </a>
+                    <?php endif; ?>
                     <a href="../notes/index.php?matiere=<?php echo $id_matiere; ?>" class="btn btn-outline-primary">
                         <i class="bi bi-pencil"></i> Voir toutes les notes
                     </a>
+                    <?php if (hasRole(ROLES_GESTION)): ?>
                     <form method="post" action="supprimer.php" class="d-inline m-0"
                           onsubmit="return confirm('Confirmer la suppression de cette matière ?')">
                         <?php echo csrfField(); ?>
@@ -463,6 +470,7 @@ $repartition_colors = [
                             <i class="bi bi-trash"></i> Supprimer
                         </button>
                     </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

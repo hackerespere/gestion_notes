@@ -10,6 +10,16 @@ $id_note = (int) ($_POST['id'] ?? 0);
 $database = new Database();
 $db = $database->getConnection();
 
+// Un enseignant ne supprime que les notes qu'il a lui-même saisies
+$stmt = $db->prepare("SELECT id_enseignant FROM saisir WHERE id_note = :id");
+$stmt->execute([':id' => $id_note]);
+$auteur = $stmt->fetchColumn();
+if ($auteur !== false && !peutGererNote($auteur)) {
+    setFlash('danger', 'Vous ne pouvez supprimer que les notes que vous avez saisies.');
+    header('Location: index.php');
+    exit;
+}
+
 try {
     $db->beginTransaction();
 

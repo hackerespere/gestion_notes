@@ -13,10 +13,15 @@ $db = $database->getConnection();
 $filtre_role = $_GET['role'] ?? '';
 $recherche = trim($_GET['q'] ?? '');
 
-$sql = "SELECT u.id, u.nom, u.prenom, u.email, u.role, u.status, u.last_login, u.id_eleve,
-               e.nom AS eleve_nom, e.prenom AS eleve_prenom
+$sql = "SELECT u.id, u.nom, u.prenom, u.email, u.role, u.status, u.last_login, u.id_eleve, u.id_enseignant,
+               e.nom AS eleve_nom, e.prenom AS eleve_prenom,
+               ens.nom AS ens_nom, ens.prenom AS ens_prenom,
+               (SELECT GROUP_CONCAT(CONCAT(c.prenom, ' ', c.nom) ORDER BY c.prenom SEPARATOR ', ')
+                FROM parent_eleve pe JOIN eleve c ON c.id_eleve = pe.id_eleve
+                WHERE pe.id_user = u.id) AS enfants
         FROM users u
         LEFT JOIN eleve e ON e.id_eleve = u.id_eleve
+        LEFT JOIN enseignant ens ON ens.id_enseignant = u.id_enseignant
         WHERE 1=1";
 $params = [];
 if ($filtre_role !== '') {
@@ -88,7 +93,7 @@ require_once '../../includes/header.php';
                     <th>Nom</th>
                     <th>Email</th>
                     <th>Rôle</th>
-                    <th>Élève lié</th>
+                    <th>Fiche liée</th>
                     <th>Statut</th>
                     <th>Dernière connexion</th>
                     <th class="text-end">Actions</th>
@@ -111,6 +116,14 @@ require_once '../../includes/header.php';
                                 <a href="../eleves/voir.php?id=<?php echo (int) $u['id_eleve']; ?>">
                                     <?php echo htmlspecialchars($u['eleve_nom'] . ' ' . $u['eleve_prenom']); ?>
                                 </a>
+                            <?php elseif ($u['id_enseignant']): ?>
+                                <a href="../enseignants/ajouter.php?id=<?php echo (int) $u['id_enseignant']; ?>">
+                                    <?php echo htmlspecialchars($u['ens_nom'] . ' ' . $u['ens_prenom']); ?>
+                                </a>
+                            <?php elseif ($u['enfants']): ?>
+                                <span class="small"><i class="bi bi-people"></i> <?php echo htmlspecialchars($u['enfants']); ?></span>
+                            <?php elseif ($u['role'] === ROLE_ENSEIGNANT): ?>
+                                <span class="text-warning small"><i class="bi bi-exclamation-triangle"></i> Aucune fiche : saisie impossible</span>
                             <?php else: ?>
                                 <span class="text-muted">—</span>
                             <?php endif; ?>

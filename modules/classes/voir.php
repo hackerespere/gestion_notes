@@ -95,12 +95,14 @@ require_once '../../includes/header.php';
             </p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
+            <?php if (hasRole(ROLES_GESTION)): ?>
             <a href="../eleves/ajouter.php" class="btn btn-dark">
                 <i class="bi bi-person-plus"></i> Ajouter un élève
             </a>
             <a href="modifier.php?id=<?php echo (int) $classe['id_classe']; ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-pencil"></i> Modifier
             </a>
+            <?php endif; ?>
             <a href="index.php" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Retour
             </a>

@@ -4,6 +4,7 @@
 // ajouter.php          -> nouveau compte
 // ajouter.php?id=X     -> modifier le compte X
 // ajouter.php?eleve=Y  -> nouveau compte élève déjà relié à la fiche Y
+// ajouter.php?enseignant=Z -> nouveau compte enseignant déjà relié à la fiche Z
 // ========================================
 require_once '../../config/session.php';
 require_once '../../config/database.php';
@@ -26,7 +27,7 @@ $roles = [
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $compte = null;
 if ($id > 0) {
-    $stmt = $db->prepare("SELECT id, nom, prenom, email, role, id_eleve, status FROM users WHERE id = :id");
+    $stmt = $db->prepare("SELECT id, nom, prenom, email, role, id_eleve, id_enseignant, status FROM users WHERE id = :id");
     $stmt->execute([':id' => $id]);
     $compte = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$compte) {
@@ -34,6 +35,10 @@ if ($id > 0) {
         header('Location: index.php');
         exit;
     }
+    // Enfants suivis (compte parent)
+    $stmt = $db->prepare("SELECT id_eleve FROM parent_eleve WHERE id_user = :id");
+    $stmt->execute([':id' => $id]);
+    $compte['enfants'] = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 $edit_mode = $compte !== null;
 $moi = $edit_mode && (int) $compte['id'] === (int) $_SESSION['user_id'];
@@ -47,6 +52,8 @@ if (isPostWithValidCsrf()) {
     $email     = trim($_POST['email'] ?? '');
     $role      = $_POST['role'] ?? '';
     $id_eleve  = (int) ($_POST['id_eleve'] ?? 0);
+    $id_enseignant = (int) ($_POST['id_enseignant'] ?? 0);
+    $enfants   = array_values(array_unique(array_map('intval', (array) ($_POST['enfants'] ?? []))));
     $password  = $_POST['password'] ?? '';
     $password2 = $_POST['password2'] ?? '';
 
@@ -91,6 +98,39 @@ if (isPostWithValidCsrf()) {
         $id_eleve = null;
     }
 
+    // Un compte enseignant doit être relié à une fiche enseignant (un compte par fiche) :
+    // c'est elle qui fixe l'auteur des notes saisies et les matières autorisées
+    if ($role === ROLE_ENSEIGNANT) {
+        $stmt = $db->prepare("SELECT COUNT(*) FROM enseignant WHERE id_enseignant = :id");
+        $stmt->execute([':id' => $id_enseignant]);
+        if ($id_enseignant <= 0 || $stmt->fetchColumn() == 0) {
+            $errors['id_enseignant'] = 'Choisissez la fiche enseignant à relier à ce compte.';
+        } else {
+            $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE id_enseignant = :ens AND id <> :id");
+            $stmt->execute([':ens' => $id_enseignant, ':id' => $id]);
+            if ($stmt->fetchColumn() > 0) {
+                $errors['id_enseignant'] = 'Cet enseignant a déjà un compte.';
+            }
+        }
+    } else {
+        $id_enseignant = null;
+    }
+
+    // Un compte parent suit au moins un enfant (élèves existants uniquement)
+    if ($role === ROLE_PARENT) {
+        if ($enfants) {
+            $marques = implode(',', array_fill(0, count($enfants), '?'));
+            $stmt = $db->prepare("SELECT id_eleve FROM eleve WHERE id_eleve IN ($marques)");
+            $stmt->execute($enfants);
+            $enfants = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        }
+        if (empty($enfants)) {
+            $errors['enfants'] = 'Cochez au moins un enfant suivi par ce parent.';
+        }
+    } else {
+        $enfants = [];
+    }
+
     // Mot de passe : obligatoire à la création, facultatif en modification (vide = inchangé)
     if (!$edit_mode || $password !== '') {
         if (strlen($password) < 8) {
@@ -102,11 +142,12 @@ if (isPostWithValidCsrf()) {
 
     if (empty($errors)) {
         try {
+            $db->beginTransaction();
             $params = [':nom' => $nom, ':prenom' => $prenom, ':email' => $email,
-                       ':role' => $role, ':id_eleve' => $id_eleve];
+                       ':role' => $role, ':id_eleve' => $id_eleve, ':id_enseignant' => $id_enseignant];
             if ($edit_mode) {
                 $sql = "UPDATE users SET nom = :nom, prenom = :prenom, email = :email,
-                               role = :role, id_eleve = :id_eleve";
+                               role = :role, id_eleve = :id_eleve, id_enseignant = :id_enseignant";
                 if ($password !== '') {
                     $sql .= ", password = :password";
                     $params[':password'] = password_hash($password, PASSWORD_DEFAULT);
@@ -114,16 +155,26 @@ if (isPostWithValidCsrf()) {
                 $sql .= " WHERE id = :id";
                 $params[':id'] = $id;
             } else {
-                $sql = "INSERT INTO users (nom, prenom, email, password, role, id_eleve)
-                        VALUES (:nom, :prenom, :email, :password, :role, :id_eleve)";
+                $sql = "INSERT INTO users (nom, prenom, email, password, role, id_eleve, id_enseignant)
+                        VALUES (:nom, :prenom, :email, :password, :role, :id_eleve, :id_enseignant)";
                 $params[':password'] = password_hash($password, PASSWORD_DEFAULT);
             }
             $db->prepare($sql)->execute($params);
+            $id_compte = $edit_mode ? $id : (int) $db->lastInsertId();
 
+            // Enfants suivis : remplacer la liste (vide si le compte n'est pas parent)
+            $db->prepare("DELETE FROM parent_eleve WHERE id_user = :id")->execute([':id' => $id_compte]);
+            $stmt = $db->prepare("INSERT INTO parent_eleve (id_user, id_eleve) VALUES (:user, :eleve)");
+            foreach ($enfants as $id_enfant) {
+                $stmt->execute([':user' => $id_compte, ':eleve' => $id_enfant]);
+            }
+
+            $db->commit();
             setFlash('success', $edit_mode ? 'Compte modifié.' : 'Compte créé : ' . $email);
             header('Location: index.php');
             exit;
         } catch (PDOException $e) {
+            $db->rollBack();
             error_log('Enregistrement compte: ' . $e->getMessage());
             $error = "Erreur lors de l'enregistrement du compte.";
         }
@@ -135,21 +186,27 @@ if (isPostWithValidCsrf()) {
 // Valeurs affichées : saisie renvoyée, sinon compte existant, sinon valeurs par défaut
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $form = ['nom' => $nom ?? '', 'prenom' => $prenom ?? '', 'email' => $email ?? '',
-             'role' => $role ?? 'user', 'id_eleve' => $id_eleve ?? null];
+             'role' => $role ?? 'user', 'id_eleve' => $id_eleve ?? null,
+             'id_enseignant' => $id_enseignant ?? null, 'enfants' => $enfants ?? []];
 } elseif ($edit_mode) {
     $form = $compte;
 } else {
     $eleve_choisi = isset($_GET['eleve']) ? (int) $_GET['eleve'] : 0;
+    $enseignant_choisi = isset($_GET['enseignant']) ? (int) $_GET['enseignant'] : 0;
     $form = ['nom' => '', 'prenom' => '', 'email' => '',
-             'role' => $eleve_choisi ? ROLE_ELEVE : 'enseignant', 'id_eleve' => $eleve_choisi ?: null];
-    // Pré-remplir le nom depuis la fiche élève
+             'role' => $eleve_choisi ? ROLE_ELEVE : ROLE_ENSEIGNANT,
+             'id_eleve' => $eleve_choisi ?: null, 'id_enseignant' => $enseignant_choisi ?: null, 'enfants' => []];
+    // Pré-remplir le nom depuis la fiche élève ou enseignant
     if ($eleve_choisi) {
         $stmt = $db->prepare("SELECT nom, prenom FROM eleve WHERE id_eleve = :id");
         $stmt->execute([':id' => $eleve_choisi]);
-        if ($e = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $form['nom'] = $e['nom'];
-            $form['prenom'] = $e['prenom'];
-        }
+    } elseif ($enseignant_choisi) {
+        $stmt = $db->prepare("SELECT nom, prenom FROM enseignant WHERE id_enseignant = :id");
+        $stmt->execute([':id' => $enseignant_choisi]);
+    }
+    if (($eleve_choisi || $enseignant_choisi) && ($fiche = $stmt->fetch(PDO::FETCH_ASSOC))) {
+        $form['nom'] = $fiche['nom'];
+        $form['prenom'] = $fiche['prenom'];
     }
 }
 
@@ -161,6 +218,17 @@ $stmt = $db->prepare("SELECT e.id_eleve, e.nom, e.prenom, c.nom_classe
                       ORDER BY e.nom, e.prenom");
 $stmt->execute([':id' => $id]);
 $eleves = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Enseignants proposés : ceux sans compte, plus celui déjà relié à ce compte
+$stmt = $db->prepare("SELECT id_enseignant, nom, prenom, grade FROM enseignant
+                      WHERE id_enseignant NOT IN (SELECT id_enseignant FROM users WHERE id_enseignant IS NOT NULL AND id <> :id)
+                      ORDER BY nom, prenom");
+$stmt->execute([':id' => $id]);
+$enseignants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Tous les élèves, pour les enfants d'un parent (un élève peut avoir plusieurs parents)
+$tous_eleves = $db->query("SELECT e.id_eleve, e.nom, e.prenom, c.nom_classe FROM eleve e
+                           LEFT JOIN classe c ON c.id_classe = e.id_classe ORDER BY e.nom, e.prenom")->fetchAll(PDO::FETCH_ASSOC);
 
 function champInvalide($errors, $champ) {
     return isset($errors[$champ]) ? 'is-invalid' : '';
@@ -247,6 +315,43 @@ require_once '../../includes/header.php';
                             <?php messageErreur($errors, 'id_eleve'); ?>
                         </div>
 
+                        <div class="col-12" id="bloc-enseignant">
+                            <label for="id_enseignant" class="form-label">Fiche enseignant reliée *</label>
+                            <select class="form-select <?php echo champInvalide($errors, 'id_enseignant'); ?>" id="id_enseignant" name="id_enseignant">
+                                <option value="">Choisir l'enseignant…</option>
+                                <?php foreach ($enseignants as $ens): ?>
+                                    <option value="<?php echo (int) $ens['id_enseignant']; ?>" <?php echo (int) ($form['id_enseignant'] ?? 0) === (int) $ens['id_enseignant'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($ens['nom'] . ' ' . $ens['prenom'] . ($ens['grade'] ? ' — ' . $ens['grade'] : '')); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted">Les notes saisies avec ce compte seront à son nom, dans ses matières uniquement.
+                                Fiche absente ? <a href="../enseignants/ajouter.php">Ajouter un enseignant</a>.</small>
+                            <?php messageErreur($errors, 'id_enseignant'); ?>
+                        </div>
+
+                        <div class="col-12" id="bloc-parent">
+                            <label class="form-label">Enfants suivis *</label>
+                            <div class="border rounded p-2 <?php echo isset($errors['enfants']) ? 'border-danger' : ''; ?>" style="max-height: 220px; overflow-y: auto;">
+                                <?php if (empty($tous_eleves)): ?>
+                                    <span class="text-muted small">Aucun élève enregistré.</span>
+                                <?php endif; ?>
+                                <?php foreach ($tous_eleves as $e): $eid = (int) $e['id_eleve']; ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="enfants[]" value="<?php echo $eid; ?>" id="enfant<?php echo $eid; ?>"
+                                               <?php echo in_array($eid, $form['enfants'] ?? [], true) ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="enfant<?php echo $eid; ?>">
+                                            <?php echo htmlspecialchars($e['nom'] . ' ' . $e['prenom'] . ($e['nom_classe'] ? ' — ' . $e['nom_classe'] : '')); ?>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <small class="text-muted">Le parent verra uniquement les notes et bulletins de ces élèves.</small>
+                            <?php if (isset($errors['enfants'])): ?>
+                                <div class="text-danger small"><?php echo htmlspecialchars($errors['enfants']); ?></div>
+                            <?php endif; ?>
+                        </div>
+
                         <div class="col-md-6">
                             <label for="password" class="form-label">Mot de passe <?php echo $edit_mode ? '' : '*'; ?></label>
                             <input type="password" class="form-control <?php echo champInvalide($errors, 'password'); ?>" id="password" name="password"
@@ -279,22 +384,27 @@ require_once '../../includes/header.php';
             <ul class="list-group list-group-flush small">
                 <li class="list-group-item"><strong>Administrateur</strong> : tout, y compris les comptes</li>
                 <li class="list-group-item"><strong>Directeur</strong> : élèves, classes, matières, notes, bulletins</li>
-                <li class="list-group-item"><strong>Enseignant</strong> : consulter, saisir et supprimer des notes, bulletins</li>
+                <li class="list-group-item"><strong>Enseignant</strong> : consulter, bulletins ; saisir des notes dans ses matières, supprimer celles qu'il a saisies</li>
                 <li class="list-group-item"><strong>Élève</strong> : ses propres notes et bulletins uniquement</li>
-                <li class="list-group-item"><strong>Parent / Utilisateur</strong> : aucun accès aux données pour l'instant</li>
+                <li class="list-group-item"><strong>Parent</strong> : notes et bulletins de ses enfants uniquement</li>
+                <li class="list-group-item"><strong>Utilisateur</strong> : aucun accès aux données</li>
             </ul>
         </div>
     </div>
 </div>
 
 <script>
-// Afficher le choix de la fiche élève seulement pour le rôle « Élève »
+// Afficher le lien adapté au rôle : fiche élève, fiche enseignant ou enfants suivis
 (function () {
     const role = document.getElementById('role');
-    const bloc = document.getElementById('bloc-eleve');
-    function majBlocEleve() { bloc.hidden = role.value !== 'eleve'; }
-    role.addEventListener('change', majBlocEleve);
-    majBlocEleve();
+    const blocs = { eleve: 'bloc-eleve', enseignant: 'bloc-enseignant', parent: 'bloc-parent' };
+    function majBlocs() {
+        for (const [code, id] of Object.entries(blocs)) {
+            document.getElementById(id).hidden = role.value !== code;
+        }
+    }
+    role.addEventListener('change', majBlocs);
+    majBlocs();
 })();
 </script>
 

@@ -100,9 +100,11 @@ function buildUrl($page, $per_page = null) {
             </p>
         </div>
         <div class="d-flex gap-2">
+            <?php if (hasRole(ROLES_GESTION)): ?>
             <a href="ajouter.php" class="btn btn-dark">
                 <i class="bi bi-plus-circle"></i> Ajouter une matière
             </a>
+            <?php endif; ?>
             <a href="index.php" class="btn btn-outline-secondary">
                 <i class="bi bi-grid"></i> Vue tableau
             </a>
@@ -169,7 +171,7 @@ function buildUrl($page, $per_page = null) {
                     <input type="text" class="form-control" id="search" name="search" 
                            placeholder="Nom de la matière..." value="<?php echo htmlspecialchars($search); ?>">
                     <?php if($search): ?>
-                        <a href="liste.php" class="input-group-text bg-transparent border-0 text-muted" 
+                        <a href="index.php" class="input-group-text bg-transparent border-0 text-muted"
                            style="margin-left: -30px; z-index: 5;">
                             <i class="bi bi-x-circle"></i>
                         </a>
@@ -197,7 +199,7 @@ function buildUrl($page, $per_page = null) {
         </form>
         <?php if($search): ?>
             <div class="mt-3 d-flex align-items-center gap-3 flex-wrap">
-                <a href="liste.php" class="btn btn-outline-secondary btn-sm">
+                <a href="index.php" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
                 </a>
                 <span class="text-muted small">
@@ -244,14 +246,17 @@ function buildUrl($page, $per_page = null) {
                         </div>
                     </div>
                     <div class="matiere-card-footer">
-                        <a href="modifier.php?id=<?php echo $matiere['id_matiere']; ?>" 
+                        <?php if (hasRole(ROLES_GESTION)): ?>
+                        <a href="modifier.php?id=<?php echo $matiere['id_matiere']; ?>"
                            class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i> Modifier
                         </a>
+                        <?php endif; ?>
                         <a href="voir.php?id=<?php echo $matiere['id_matiere']; ?>" 
                            class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-eye"></i> Voir
                         </a>
+                        <?php if (hasRole(ROLES_GESTION)): ?>
                         <form method="post" action="supprimer.php" class="d-inline m-0"
                               onsubmit="return confirm('Confirmer la suppression de cette matière ?')">
                             <?php echo csrfField(); ?>
@@ -260,6 +265,7 @@ function buildUrl($page, $per_page = null) {
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -347,10 +353,10 @@ function buildUrl($page, $per_page = null) {
                         'Commencez par ajouter une matière'; ?>
                 </p>
                 <?php if($search): ?>
-                    <a href="liste.php" class="btn btn-outline-secondary btn-sm">
+                    <a href="index.php" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser les filtres
                     </a>
-                <?php else: ?>
+                <?php elseif (hasRole(ROLES_GESTION)): ?>
                     <a href="ajouter.php" class="btn btn-dark btn-sm">
                         <i class="bi bi-plus-circle"></i> Ajouter une matière
                     </a>

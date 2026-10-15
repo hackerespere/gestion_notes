@@ -17,6 +17,28 @@ $message = '';
 $error = '';
 $success = false;
 
+// Un enseignant saisit en son nom (fiche liée à son compte) et uniquement dans ses matières
+$est_enseignant = hasRole(ROLE_ENSEIGNANT);
+$saisie_bloquee = false;
+if ($est_enseignant) {
+    $mon_enseignant = $_SESSION['id_enseignant'] ?? null;
+    $enseignants = array_values(array_filter($enseignants, fn($e) => (int) $e['id_enseignant'] === (int) $mon_enseignant));
+
+    $stmt = $db->prepare("SELECT m.id_matiere, m.nom_matiere
+                          FROM enseigner en JOIN matiere m ON m.id_matiere = en.id_matiere
+                          WHERE en.id_enseignant = :ens ORDER BY m.nom_matiere");
+    $stmt->execute([':ens' => (int) $mon_enseignant]);
+    $matieres = $stmt->fetchAll();
+
+    if (!$mon_enseignant || empty($enseignants)) {
+        $saisie_bloquee = true;
+        $error = "Votre compte n'est relié à aucune fiche enseignant. Demandez à un administrateur de le relier.";
+    } elseif (empty($matieres)) {
+        $saisie_bloquee = true;
+        $error = "Aucune matière ne vous est affectée. Demandez à la direction de vous affecter vos matières.";
+    }
+}
+
 // Vérifier si un élève est pré-sélectionné
 $selected_eleve = isset($_GET['eleve_id']) ? $_GET['eleve_id'] : '';
 
@@ -28,18 +50,22 @@ if(csrfError()) {
     $error = csrfError();
 }
 
-if(isPostWithValidCsrf()) {
-    $valeur = $_POST['valeur'];
+if(isPostWithValidCsrf() && !$saisie_bloquee) {
+    $valeur = $_POST['valeur'] ?? '';
     $type_note = $_POST['type_note'];
     $date_note = $_POST['date_note'];
     $id_eleve = $_POST['id_eleve'];
     $id_matiere = $_POST['id_matiere'];
-    $id_enseignant = $_POST['id_enseignant'];
+    // Enseignant : l'auteur de la note vient de la session, jamais du formulaire
+    $id_enseignant = $est_enseignant ? $mon_enseignant : $_POST['id_enseignant'];
     $id_trimestre = $_POST['id_trimestre'];
     $commentaire = isset($_POST['commentaire']) ? $_POST['commentaire'] : '';
 
-    if(empty($valeur) || empty($id_eleve) || empty($id_matiere) || empty($id_enseignant) || empty($id_trimestre)) {
+    // La note 0 est valide : tester la chaîne vide, pas empty()
+    if($valeur === '' || !is_numeric($valeur) || empty($id_eleve) || empty($id_matiere) || empty($id_enseignant) || empty($id_trimestre)) {
         $error = "Veuillez remplir tous les champs obligatoires.";
+    } elseif($est_enseignant && !in_array((int) $id_matiere, array_map('intval', array_column($matieres, 'id_matiere')), true)) {
+        $error = "Vous ne pouvez saisir des notes que dans les matières qui vous sont affectées.";
     } elseif($valeur < 0 || $valeur > 20) {
         $error = "La note doit être comprise entre 0 et 20.";
     } else {
@@ -239,6 +265,11 @@ if($selected_eleve) {
                                 <label for="id_enseignant" class="form-label required">Enseignant</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                                    <?php if($est_enseignant): ?>
+                                        <!-- Enseignant connecté : auteur fixé par la session -->
+                                        <input type="text" class="form-control" readonly
+                                               value="<?php echo $enseignants ? htmlspecialchars($enseignants[0]['nom'] . ' ' . $enseignants[0]['prenom']) : '—'; ?>">
+                                    <?php else: ?>
                                     <select class="form-select" id="id_enseignant" name="id_enseignant" required>
                                         <option value="">Sélectionner un enseignant</option>
                                         <?php foreach($enseignants as $enseignant): ?>
@@ -247,6 +278,7 @@ if($selected_eleve) {
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="invalid-feedback">Veuillez sélectionner un enseignant</div>
                             </div>
@@ -334,7 +366,7 @@ if($selected_eleve) {
                     <div class="row mt-4">
                         <div class="col-12">
                             <div class="form-actions">
-                                <button type="submit" class="btn btn-dark">
+                                <button type="submit" class="btn btn-dark" <?php echo $saisie_bloquee ? 'disabled' : ''; ?>>
                                     <i class="bi bi-save"></i> Enregistrer la note
                                 </button>
                                 <button type="reset" class="btn btn-outline-secondary">

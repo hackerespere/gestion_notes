@@ -71,7 +71,7 @@ function checkAuth() {
 
     // Relire le compte en base : un compte désactivé ou supprimé perd l'accès immédiatement,
     // et un changement de rôle s'applique sans attendre une nouvelle connexion
-    $stmt = (new Database())->getConnection()->prepare("SELECT role, id_eleve, status FROM users WHERE id = :id");
+    $stmt = (new Database())->getConnection()->prepare("SELECT role, id_eleve, id_enseignant, status FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $compte = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -82,6 +82,8 @@ function checkAuth() {
     }
     $_SESSION['user_role'] = $compte['role'];
     $_SESSION['id_eleve']  = $compte['role'] === ROLE_ELEVE ? (int) $compte['id_eleve'] : null;
+    $_SESSION['id_enseignant'] = $compte['role'] === ROLE_ENSEIGNANT && $compte['id_enseignant']
+        ? (int) $compte['id_enseignant'] : null;
 
     // Mettre à jour le timestamp de la dernière activité
     $_SESSION['last_activity'] = time();
@@ -97,8 +99,12 @@ const ROLES_ADMIN = ['admin'];
 const ROLES_GESTION = ['admin', 'directeur'];
 // Travail pédagogique : consulter les données, saisir les notes, éditer les bulletins
 const ROLES_PEDAGOGIE = ['admin', 'directeur', 'enseignant'];
+// Enseignant : saisit les notes de SES matières, en son nom (fiche enseignant liée au compte)
+const ROLE_ENSEIGNANT = 'enseignant';
 // Élève : accès en lecture à ses propres notes et bulletins uniquement (espace élève)
 const ROLE_ELEVE = 'eleve';
+// Parent : accès en lecture aux notes et bulletins de ses enfants uniquement (espace parent)
+const ROLE_PARENT = 'parent';
 
 // L'utilisateur connecté a-t-il l'un des rôles donnés ?
 function hasRole($roles) {
@@ -122,6 +128,38 @@ function requireRole($roles) {
 function requireEleve() {
     requireRole([ROLE_ELEVE]);
     return (int) $_SESSION['id_eleve'];
+}
+
+// Espace parent : exiger un compte parent ; les enfants se lisent via parentEleves()
+function requireParent() {
+    requireRole([ROLE_PARENT]);
+    return (int) $_SESSION['user_id'];
+}
+
+// Enfants rattachés au compte parent connecté : [id_eleve => fiche]
+function parentEleves($db) {
+    $stmt = $db->prepare("SELECT e.id_eleve, e.nom, e.prenom, c.nom_classe
+                          FROM parent_eleve pe
+                          JOIN eleve e ON e.id_eleve = pe.id_eleve
+                          LEFT JOIN classe c ON c.id_classe = e.id_classe
+                          WHERE pe.id_user = :user
+                          ORDER BY e.prenom, e.nom");
+    $stmt->execute([':user' => $_SESSION['user_id']]);
+    $enfants = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $e) {
+        $enfants[(int) $e['id_eleve']] = $e;
+    }
+    return $enfants;
+}
+
+// Peut-on supprimer une note saisie par l'enseignant $id_enseignant_note ?
+// Direction : toutes les notes. Enseignant : uniquement celles qu'il a saisies.
+function peutGererNote($id_enseignant_note) {
+    if (hasRole(ROLES_GESTION)) {
+        return true;
+    }
+    return hasRole(ROLE_ENSEIGNANT) && !empty($_SESSION['id_enseignant'])
+        && (int) $id_enseignant_note === (int) $_SESSION['id_enseignant'];
 }
 
 // ========================================

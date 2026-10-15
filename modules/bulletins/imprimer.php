@@ -3,7 +3,7 @@ require_once '../../config/session.php';
 require_once '../../config/database.php';
 
 // Page sans header.php (impression) : vérifier la connexion ici
-requireRole(array_merge(ROLES_PEDAGOGIE, [ROLE_ELEVE]));
+requireRole(array_merge(ROLES_PEDAGOGIE, [ROLE_ELEVE, ROLE_PARENT]));
 
 $database = new Database();
 $db = $database->getConnection();
@@ -13,6 +13,12 @@ if (hasRole(ROLE_ELEVE)) {
     $eleve_id = requireEleve();
 } else {
     $eleve_id = isset($_GET['eleve_id']) ? (int) $_GET['eleve_id'] : null;
+}
+
+// Un parent n'imprime que les bulletins de SES enfants
+if (hasRole(ROLE_PARENT) && !isset(parentEleves($db)[$eleve_id])) {
+    http_response_code(403);
+    die('Accès refusé : cet élève ne fait pas partie de vos enfants.');
 }
 $trimestre_id = isset($_GET['trimestre_id']) ? (int) $_GET['trimestre_id'] : null;
 

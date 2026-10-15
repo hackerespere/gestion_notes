@@ -64,6 +64,7 @@ if ($user && password_verify($password, $user['password'])
     $_SESSION['user_email']    = $user['email'];
     $_SESSION['user_role']     = $user['role'] ?? 'user';
     $_SESSION['id_eleve']      = $user['role'] === ROLE_ELEVE ? (int) $user['id_eleve'] : null; // ← Fiche de l'élève connecté
+    $_SESSION['id_enseignant'] = $user['role'] === ROLE_ENSEIGNANT && $user['id_enseignant'] ? (int) $user['id_enseignant'] : null;
     $_SESSION['login_time']    = time();          // ← Heure de connexion
     $_SESSION['last_activity'] = time();          // ← Utilisé par checkAuth() pour le timeout
     unset($_SESSION['csrf_token']);               // ← Nouveau jeton pour la session connectée
@@ -778,7 +779,7 @@ if ($user && password_verify($password, $user['password'])
                 </div>
 
                 <div class="form-options">
-                    <a href="forgot-password.php" class="forgot-link">Mot de passe oublié ?</a>
+                    <span class="forgot-link">Mot de passe oublié ? Contactez l'administration.</span>
                 </div>
 
                 <button type="submit" class="btn-login" id="loginBtn">
@@ -792,8 +793,7 @@ if ($user && password_verify($password, $user['password'])
 
             <div class="form-footer">
                 <p>
-                    Pas encore de compte ?
-                    <a href="register.php">Créer un compte</a>
+                    Les comptes sont créés par l'administration de l'établissement.
                 </p>
             </div>
         </div>

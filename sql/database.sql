@@ -100,9 +100,21 @@ CREATE TABLE users (
     -- Fiche élève liée au compte (rôle 'eleve' uniquement) : un compte par élève,
     -- supprimé avec la fiche de l'élève
     id_eleve INT NULL UNIQUE,
+    -- Fiche enseignant liée au compte (rôle 'enseignant' uniquement) : un compte par enseignant
+    id_enseignant INT NULL UNIQUE,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     last_login DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_eleve) REFERENCES eleve(id_eleve) ON DELETE CASCADE,
+    FOREIGN KEY (id_enseignant) REFERENCES enseignant(id_enseignant) ON DELETE CASCADE
+);
+
+-- Table PARENT_ELEVE (enfants suivis par un compte parent)
+CREATE TABLE parent_eleve (
+    id_user INT,
+    id_eleve INT,
+    PRIMARY KEY (id_user, id_eleve),
+    FOREIGN KEY (id_user) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (id_eleve) REFERENCES eleve(id_eleve) ON DELETE CASCADE
 );
 

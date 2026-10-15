@@ -5,9 +5,13 @@
 // ========================================
 require_once 'config/session.php';
 
-// Les élèves ont leur propre espace
+// Les élèves et les parents ont leur propre espace
 if (hasRole(ROLE_ELEVE)) {
     header('Location: ' . BASE_URL . 'modules/espace_eleve/index.php');
+    exit;
+}
+if (hasRole(ROLE_PARENT)) {
+    header('Location: ' . BASE_URL . 'modules/espace_parent/index.php');
     exit;
 }
 
@@ -464,9 +468,11 @@ $max_eleves_classe = max($max_eleves_classe, 1); // éviter division par 0
                     <div class="empty-state">
                         <i class="bi bi-building"></i>
                         <p>Aucune classe enregistrée</p>
+                        <?php if (hasRole(ROLES_GESTION)): ?>
                         <a href="modules/classes/ajouter.php" class="btn btn-dark btn-sm">
                             <i class="bi bi-plus-circle"></i> Créer une classe
                         </a>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -488,36 +494,42 @@ $max_eleves_classe = max($max_eleves_classe, 1); // éviter division par 0
             </div>
             <div class="dashboard-card-body">
                 <div class="actions-grid">
+                    <?php if (hasRole(ROLES_GESTION)): ?>
                     <a href="modules/eleves/ajouter.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-person-plus"></i>
                         </div>
                         <div class="action-label">Ajouter un élève</div>
                     </a>
+                    <?php endif; ?>
                     <a href="modules/notes/saisir.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-pencil-square"></i>
                         </div>
                         <div class="action-label">Saisir des notes</div>
                     </a>
+                    <?php if (hasRole(ROLES_GESTION)): ?>
                     <a href="modules/classes/ajouter.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-building-add"></i>
                         </div>
                         <div class="action-label">Créer une classe</div>
                     </a>
+                    <?php endif; ?>
                     <a href="modules/bulletins/index.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-file-pdf"></i>
                         </div>
                         <div class="action-label">Générer un bulletin</div>
                     </a>
+                    <?php if (hasRole(ROLES_GESTION)): ?>
                     <a href="modules/matieres/ajouter.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-book-plus"></i>
                         </div>
                         <div class="action-label">Ajouter une matière</div>
                     </a>
+                    <?php endif; ?>
                     <a href="modules/notes/consulter.php" class="action-item">
                         <div class="action-icon">
                             <i class="bi bi-eye"></i>

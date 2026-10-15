@@ -157,12 +157,11 @@ function buildUrl($page, $per_page = null) {
             </p>
         </div>
         <div class="d-flex gap-2">
+            <?php if (hasRole(ROLES_GESTION)): ?>
             <a href="ajouter.php" class="btn btn-dark">
                 <i class="bi bi-plus-circle"></i> Ajouter un élève
             </a>
-            <a href="ajouter.php?import=1" class="btn btn-outline-secondary">
-                <i class="bi bi-upload"></i> Importer
-            </a>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -458,10 +457,12 @@ function buildUrl($page, $per_page = null) {
                             </td>
                             <td class="col-actions">
                                 <div class="action-buttons">
-                                    <a href="modifier.php?id=<?php echo $eleve['id_eleve']; ?>" 
+                                    <?php if (hasRole(ROLES_GESTION)): ?>
+                                    <a href="modifier.php?id=<?php echo $eleve['id_eleve']; ?>"
                                        class="btn btn-sm btn-outline-secondary" title="Modifier">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    <?php endif; ?>
                                     <a href="../notes/consulter.php?eleve_id=<?php echo $eleve['id_eleve']; ?>" 
                                        class="btn btn-sm btn-outline-primary" title="Voir les notes">
                                         <i class="bi bi-eye"></i>
@@ -470,6 +471,7 @@ function buildUrl($page, $per_page = null) {
                                        class="btn btn-sm btn-outline-success" title="Fiche et bulletins">
                                         <i class="bi bi-file-text"></i>
                                     </a>
+                                    <?php if (hasRole(ROLES_GESTION)): ?>
                                     <form method="post" action="supprimer.php" class="d-inline m-0"
                                           onsubmit="return confirm('Confirmer la suppression de cet élève ? Ses notes seront aussi supprimées.')">
                                         <?php echo csrfField(); ?>
@@ -478,6 +480,7 @@ function buildUrl($page, $per_page = null) {
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -568,7 +571,7 @@ function buildUrl($page, $per_page = null) {
                     <a href="index.php" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser les filtres
                     </a>
-                <?php else: ?>
+                <?php elseif (hasRole(ROLES_GESTION)): ?>
                     <a href="ajouter.php" class="btn btn-dark btn-sm">
                         <i class="bi bi-plus-circle"></i> Ajouter un élève
                     </a>

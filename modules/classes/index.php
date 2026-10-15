@@ -110,9 +110,11 @@ function buildUrl($page, $per_page = null) {
             </p>
         </div>
         <div class="d-flex gap-2">
+            <?php if (hasRole(ROLES_GESTION)): ?>
             <a href="ajouter.php" class="btn btn-dark">
                 <i class="bi bi-plus-circle"></i> Ajouter une classe
             </a>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -286,10 +288,12 @@ function buildUrl($page, $per_page = null) {
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    <a href="modifier.php?id=<?php echo $classe['id_classe']; ?>" 
+                                    <?php if (hasRole(ROLES_GESTION)): ?>
+                                    <a href="modifier.php?id=<?php echo $classe['id_classe']; ?>"
                                        class="btn btn-sm btn-outline-secondary" title="Modifier">
                                         <i class="bi bi-pencil"></i>
                                     </a>
+                                    <?php endif; ?>
                                     <a href="voir.php?id=<?php echo $classe['id_classe']; ?>" 
                                        class="btn btn-sm btn-outline-primary" title="Voir les détails">
                                         <i class="bi bi-eye"></i>
@@ -298,6 +302,7 @@ function buildUrl($page, $per_page = null) {
                                        class="btn btn-sm btn-outline-success" title="Voir les élèves">
                                         <i class="bi bi-people"></i>
                                     </a>
+                                    <?php if (hasRole(ROLES_GESTION)): ?>
                                     <form method="post" action="supprimer.php" class="d-inline m-0"
                                           onsubmit="return confirm('Confirmer la suppression de cette classe ?')">
                                         <?php echo csrfField(); ?>
@@ -306,6 +311,7 @@ function buildUrl($page, $per_page = null) {
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -396,7 +402,7 @@ function buildUrl($page, $per_page = null) {
                     <a href="index.php" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser les filtres
                     </a>
-                <?php else: ?>
+                <?php elseif (hasRole(ROLES_GESTION)): ?>
                     <a href="ajouter.php" class="btn btn-dark btn-sm">
                         <i class="bi bi-plus-circle"></i> Ajouter une classe
                     </a>
