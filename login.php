@@ -1,24 +1,12 @@
 <?php
 // ========================================
-// DÉMARRER LA SESSION EN PREMIER (avant toute sortie)
+// SESSION ET BASE DE DONNÉES (configuration commune)
 // ========================================
-session_start();
+require_once 'config/session.php';
+require_once 'config/database.php';
 
-// ========================================
-// CONFIGURATION DE LA BASE DE DONNÉES
-// ========================================
-$host = 'localhost';
-$dbname = 'gestion_notes';
-$username = 'root';
-$password_db = '';
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password_db);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-} catch(PDOException $e) {
-    die("Erreur de connexion à la base de données");
-}
+$pdo = (new Database())->getConnection();
+$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
 // ========================================
 // REDIRIGER SI DÉJÀ CONNECTÉ
@@ -45,10 +33,11 @@ if (isset($_GET['timeout']) && $_GET['timeout'] == '1') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    $remember = isset($_POST['remember']);
 
     // Validation
-    if (empty($email) || empty($password)) {
+    if (!verifyCsrf()) {
+        $error = 'La page a expiré. Veuillez réessayer.';
+    } elseif (empty($email) || empty($password)) {
         $error = 'Veuillez remplir tous les champs.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Veuillez saisir une adresse email valide.';
@@ -59,7 +48,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':email', $email, PDO::PARAM_STR);
             $stmt->execute();
             $user = $stmt->fetch();
-if ($user && password_verify($password, $user['password'])) {
+if ($user && password_verify($password, $user['password'])
+    && $user['role'] === ROLE_ELEVE && empty($user['id_eleve'])) {
+    // Compte élève sans fiche élève : il ne pourrait voir aucune note
+    $error = "Ce compte élève n'est relié à aucune fiche. Contactez l'administration.";
+} elseif ($user && password_verify($password, $user['password'])) {
     // ========================================
     // CONNEXION RÉUSSIE
     // ========================================
@@ -70,8 +63,10 @@ if ($user && password_verify($password, $user['password'])) {
     $_SESSION['user_name']     = $user['nom'] . ' ' . $user['prenom'];
     $_SESSION['user_email']    = $user['email'];
     $_SESSION['user_role']     = $user['role'] ?? 'user';
+    $_SESSION['id_eleve']      = $user['role'] === ROLE_ELEVE ? (int) $user['id_eleve'] : null; // ← Fiche de l'élève connecté
     $_SESSION['login_time']    = time();          // ← Heure de connexion
-    $_SESSION['last_activity'] = time();          // ← IMPORTANT : même clé que session.php
+    $_SESSION['last_activity'] = time();          // ← Utilisé par checkAuth() pour le timeout
+    unset($_SESSION['csrf_token']);               // ← Nouveau jeton pour la session connectée
 
     // Mettre à jour la dernière connexion
     try {
@@ -79,14 +74,6 @@ if ($user && password_verify($password, $user['password'])) {
         $updateStmt->execute([':id' => $user['id']]);
     } catch (PDOException $e) {
         error_log('Update last_login: ' . $e->getMessage());
-    }
-
-    // Cookie de session persistante
-    if ($remember) {
-        $cookieExpire = time() + (86400 * 30);
-        setcookie('user_id',    $user['id'],             $cookieExpire, '/');
-        setcookie('user_email', $user['email'],          $cookieExpire, '/');
-        setcookie('user_name',  $_SESSION['user_name'],  $cookieExpire, '/');
     }
 
     // Redirection
@@ -751,6 +738,7 @@ if ($user && password_verify($password, $user['password'])) {
 
             <!-- Formulaire -->
             <form method="POST" action="" id="loginForm" novalidate>
+                <?php echo csrfField(); ?>
                 <div class="form-group">
                     <label for="email">
                         <i class="bi bi-envelope"></i> Adresse email
@@ -790,10 +778,6 @@ if ($user && password_verify($password, $user['password'])) {
                 </div>
 
                 <div class="form-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="remember" id="remember" <?php echo isset($_POST['remember']) ? 'checked' : ''; ?>>
-                        Se souvenir de moi
-                    </label>
                     <a href="forgot-password.php" class="forgot-link">Mot de passe oublié ?</a>
                 </div>
 

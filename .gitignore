@@ -1,0 +1,5 @@
+# Configuration locale (identifiants, clés API)
+.env
+
+# Dépendances Composer
+/vendor/

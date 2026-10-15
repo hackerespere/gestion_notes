@@ -9,6 +9,11 @@ if (!isLoggedIn() || isSessionExpired()) {
     echo json_encode(['erreur' => 'Non connecté']);
     exit;
 }
+if (!hasRole(ROLES_PEDAGOGIE)) {
+    http_response_code(403);
+    echo json_encode(['erreur' => 'Accès refusé']);
+    exit;
+}
 
 $database = new Database();
 $db = $database->getConnection();

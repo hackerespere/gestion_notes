@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_GESTION);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
@@ -33,7 +35,12 @@ if($edit_mode) {
     }
 }
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Formulaire refusé si le jeton CSRF est absent ou invalide
+if(csrfError()) {
+    $error = csrfError();
+}
+
+if(isPostWithValidCsrf()) {
     $nom = htmlspecialchars(trim($_POST['nom']));
     $prenom = htmlspecialchars(trim($_POST['prenom']));
     $date_naiss = $_POST['date_naiss'];
@@ -183,6 +190,7 @@ if(!empty($form_data['date_naiss'])) {
             </div>
             <div class="form-card-body">
                 <form method="POST" action="" id="eleveForm" class="needs-validation" novalidate>
+                    <?php echo csrfField(); ?>
                     <!-- Informations personnelles -->
                     <div class="form-section">
                         <div class="form-section-title">

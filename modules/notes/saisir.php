@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_PEDAGOGIE);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
@@ -21,7 +23,12 @@ $selected_eleve = isset($_GET['eleve_id']) ? $_GET['eleve_id'] : '';
 // Vérifier si une matière est pré-sélectionnée
 $selected_matiere = isset($_GET['matiere_id']) ? $_GET['matiere_id'] : '';
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Formulaire refusé si le jeton CSRF est absent ou invalide
+if(csrfError()) {
+    $error = csrfError();
+}
+
+if(isPostWithValidCsrf()) {
     $valeur = $_POST['valeur'];
     $type_note = $_POST['type_note'];
     $date_note = $_POST['date_note'];
@@ -182,6 +189,7 @@ if($selected_eleve) {
             </div>
             <div class="form-card-body">
                 <form method="POST" action="" id="noteForm" class="needs-validation" novalidate>
+                    <?php echo csrfField(); ?>
                     <!-- Ligne 1 : Élève et Matière -->
                     <div class="row g-3">
                         <div class="col-md-6">

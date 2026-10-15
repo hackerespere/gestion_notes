@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_GESTION);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
@@ -31,7 +33,12 @@ if($edit_mode) {
     }
 }
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Formulaire refusé si le jeton CSRF est absent ou invalide
+if(csrfError()) {
+    $error = csrfError();
+}
+
+if(isPostWithValidCsrf()) {
     $nom_classe = htmlspecialchars(trim($_POST['nom_classe']));
     $niveau = htmlspecialchars(trim($_POST['niveau']));
     $anne_scolaire = htmlspecialchars(trim($_POST['anne_scolaire']));
@@ -170,6 +177,7 @@ $annee_scolaire_defaut = $annee_courante . '-' . $annee_suivante;
             </div>
             <div class="form-card-body">
                 <form method="POST" action="" id="classeForm" class="needs-validation" novalidate>
+                    <?php echo csrfField(); ?>
                     <!-- Informations de la classe -->
                     <div class="form-section">
                         <div class="form-section-title">

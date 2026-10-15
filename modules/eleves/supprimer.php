@@ -2,7 +2,7 @@
 require_once '../../config/session.php';
 require_once '../../config/database.php';
 
-checkAuth();
+requireRole(ROLES_GESTION);
 requirePostWithCsrf('index.php');
 
 $id_eleve = (int) ($_POST['id'] ?? 0);

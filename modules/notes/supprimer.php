@@ -2,7 +2,7 @@
 require_once '../../config/session.php';
 require_once '../../config/database.php';
 
-checkAuth();
+requireRole(ROLES_PEDAGOGIE);
 requirePostWithCsrf('index.php');
 
 $id_note = (int) ($_POST['id'] ?? 0);

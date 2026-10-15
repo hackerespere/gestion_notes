@@ -1,38 +1,6 @@
 <?php
-// Démarrer la session
-session_start();
-
-// Fonction de déconnexion
-function performLogout() {
-    // Récupérer les informations de l'utilisateur pour le log
-    $user_name = $_SESSION['user_name'] ?? 'Utilisateur';
-    $user_id = $_SESSION['user_id'] ?? null;
-    
-    // Effacer toutes les variables de session
-    $_SESSION = array();
-    
-    // Supprimer le cookie de session
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    
-    // Supprimer les cookies "Se souvenir de moi"
-    if (isset($_COOKIE['user_id'])) {
-        setcookie('user_id', '', time() - 3600, '/');
-        setcookie('user_email', '', time() - 3600, '/');
-        setcookie('user_name', '', time() - 3600, '/');
-        setcookie('remember_token', '', time() - 3600, '/');
-    }
-    
-    // Détruire la session
-    session_destroy();
-    
-    return $user_name;
-}
+// Session et fonction logout() communes
+require_once 'config/session.php';
 
 // Variables pour l'affichage
 $user_name = '';
@@ -47,7 +15,7 @@ if (isset($_SESSION['user_id'])) {
 }
 
 // Exécuter la déconnexion
-performLogout();
+logout();
 
 // Redirection automatique après 3 secondes
 $redirect_url = 'login.php';

@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_GESTION);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
@@ -33,7 +35,12 @@ $error = '';
 $success = false;
 $form_data = $matiere;
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Formulaire refusé si le jeton CSRF est absent ou invalide
+if(csrfError()) {
+    $error = csrfError();
+}
+
+if(isPostWithValidCsrf()) {
     $nom_matiere = htmlspecialchars(trim($_POST['nom_matiere']));
     $coef = floatval($_POST['coef']);
 
@@ -190,6 +197,7 @@ $total_notes = $db->query("SELECT COUNT(*) as total FROM porter_sur WHERE id_mat
             </div>
             <div class="form-card-body">
                 <form method="POST" action="" id="matiereForm" class="needs-validation" novalidate>
+                    <?php echo csrfField(); ?>
                     <!-- Informations de la matière -->
                     <div class="form-section">
                         <div class="form-section-title">

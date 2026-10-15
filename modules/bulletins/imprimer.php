@@ -3,12 +3,17 @@ require_once '../../config/session.php';
 require_once '../../config/database.php';
 
 // Page sans header.php (impression) : vérifier la connexion ici
-checkAuth();
+requireRole(array_merge(ROLES_PEDAGOGIE, [ROLE_ELEVE]));
 
 $database = new Database();
 $db = $database->getConnection();
 
-$eleve_id = isset($_GET['eleve_id']) ? (int) $_GET['eleve_id'] : null;
+// Un élève n'imprime que SON bulletin : l'identifiant de l'URL est ignoré pour lui
+if (hasRole(ROLE_ELEVE)) {
+    $eleve_id = requireEleve();
+} else {
+    $eleve_id = isset($_GET['eleve_id']) ? (int) $_GET['eleve_id'] : null;
+}
 $trimestre_id = isset($_GET['trimestre_id']) ? (int) $_GET['trimestre_id'] : null;
 
 if(!$eleve_id || !$trimestre_id) {

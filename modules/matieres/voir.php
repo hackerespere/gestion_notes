@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_PEDAGOGIE);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 

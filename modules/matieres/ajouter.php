@@ -1,4 +1,6 @@
 <?php
+require_once '../../config/session.php';
+requireRole(ROLES_GESTION);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
@@ -30,7 +32,12 @@ if($edit_mode) {
     }
 }
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Formulaire refusé si le jeton CSRF est absent ou invalide
+if(csrfError()) {
+    $error = csrfError();
+}
+
+if(isPostWithValidCsrf()) {
     $nom_matiere = htmlspecialchars(trim($_POST['nom_matiere']));
     $coef = floatval($_POST['coef']);
 
@@ -184,6 +191,7 @@ if($edit_mode && $matiere_data) {
             </div>
             <div class="form-card-body">
                 <form method="POST" action="" id="matiereForm" class="needs-validation" novalidate>
+                    <?php echo csrfField(); ?>
                     <!-- Informations de la matière -->
                     <div class="form-section">
                         <div class="form-section-title">

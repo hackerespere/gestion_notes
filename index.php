@@ -1,36 +1,32 @@
 <?php
 // ========================================
-// SÉCURITÉ : Session et authentification AVANT tout
-// ========================================
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Configuration de base
-define('BASE_URL', '/gestion_notes/');
-
-// Rediriger si non connecté
-if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
-    header('Location: ' . BASE_URL . 'login.php?timeout=1');
-    exit;
-}
-
-// Vérifier le timeout de session (30 minutes d'inactivité)
-$timeout_duration = 1800; // 30 minutes
-if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time']) > $timeout_duration) {
-    session_unset();
-    session_destroy();
-    header('Location: ' . BASE_URL . 'login.php?timeout=1');
-    exit;
-}
-// Rafraîchir le timer
-$_SESSION['login_time'] = time();
-
-// ========================================
 // CHARGEMENT DES DÉPENDANCES
+// (header.php vérifie la connexion et le timeout via config/session.php)
 // ========================================
+require_once 'config/session.php';
+
+// Les élèves ont leur propre espace
+if (hasRole(ROLE_ELEVE)) {
+    header('Location: ' . BASE_URL . 'modules/espace_eleve/index.php');
+    exit;
+}
+
 require_once 'includes/header.php';
 require_once 'config/database.php';
+
+// Le tableau de bord affiche des données d'élèves : réservé aux rôles pédagogiques
+if (!hasRole(ROLES_PEDAGOGIE)): ?>
+    <div class="container mt-5">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            Bienvenue <?php echo htmlspecialchars($user_name); ?>. Votre compte n'a pas encore accès aux données de l'établissement.
+            Contactez un administrateur pour obtenir les droits nécessaires.
+        </div>
+    </div>
+<?php
+    require_once 'includes/footer.php';
+    exit;
+endif;
 
 $database = new Database();
 $db = $database->getConnection();

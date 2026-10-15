@@ -2,7 +2,7 @@
 require_once '../../config/session.php';
 require_once '../../config/database.php';
 
-checkAuth();
+requireRole(ROLES_PEDAGOGIE);
 
 $database = new Database();
 $db = $database->getConnection();
@@ -210,17 +210,5 @@ require_once '../../includes/header.php';
         </div>
     <?php endif; ?>
 </div>
-
-<style>
-.page-header { margin-bottom: 32px; }
-.page-title { font-size: 1.65rem; font-weight: 700; display: flex; align-items: center; gap: 12px; margin: 0; }
-.title-icon { width: 44px; height: 44px; border-radius: 12px; background: #111827; color: #fff;
-              display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; }
-.page-subtitle { margin: 6px 0 0; }
-.voir-card { border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
-.voir-card .card-header { background: #f9fafb; font-weight: 600; }
-.stat-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
-.stat-card strong { font-size: 1.35rem; }
-</style>
 
 <?php require_once '../../includes/footer.php'; ?>

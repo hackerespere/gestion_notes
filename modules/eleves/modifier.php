@@ -2,7 +2,7 @@
 // La modification utilise le même formulaire que l'ajout (ajouter.php?id=X gère le mode édition)
 require_once '../../config/session.php';
 
-checkAuth();
+requireRole(ROLES_GESTION);
 
 $id_eleve = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 

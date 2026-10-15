@@ -38,65 +38,19 @@ if (!defined('BASE_URL')) {
 // ========================================
 // CHARGEMENT DE LA CONFIGURATION DE SESSION
 // ========================================
-// session.php gère :
-//   - session_start() sécurisé
-//   - SESSION_TIMEOUT
-//   - checkSessionTimeout()
-//   - checkAuth(), isLoggedIn(), hasRole(), etc.
-$sessionConfigFile = BASE_PATH . 'config/session.php';
-if (file_exists($sessionConfigFile)) {
-    require_once $sessionConfigFile;
-} else {
-    // Fallback minimal si session.php manquant
-    if (!defined('SESSION_TIMEOUT')) {
-        define('SESSION_TIMEOUT', 1800);
-    }
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-}
-
-// ========================================
-// ✅ SYNCHRONISATION DES CLÉS DE SESSION
-// ========================================
-// CRUCIAL : login.php peut définir 'login_time' OU 'last_activity'.
-// On synchronise pour que checkAuth() ne se trompe jamais.
-if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
-    // Si last_activity est manquant, le créer à partir de login_time ou maintenant
-    if (empty($_SESSION['last_activity'])) {
-        $_SESSION['last_activity'] = $_SESSION['login_time'] ?? time();
-    }
-    // Si login_time est manquant, le créer
-    if (empty($_SESSION['login_time'])) {
-        $_SESSION['login_time'] = $_SESSION['last_activity'];
-    }
-    // Ne pas rafraîchir last_activity ici : checkAuth() doit d'abord vérifier l'inactivité,
-    // sinon la session n'expire jamais côté serveur. Le rafraîchissement se fait plus bas.
-}
+// session.php est le seul fichier d'authentification : session sécurisée,
+// SESSION_TIMEOUT, checkAuth(), rôles (hasRole/requireRole), CSRF, messages flash
+require_once BASE_PATH . 'config/session.php';
 
 // ========================================
 // VÉRIFICATION DE L'AUTHENTIFICATION
 // ========================================
+// checkAuth() contrôle la connexion et l'inactivité, puis rafraîchit last_activity
 $current_page = basename($_SERVER['PHP_SELF']);
-$public_pages = ['login.php', 'register.php', 'logout.php', 'forgot-password.php'];
+$public_pages = ['login.php', 'logout.php'];
 
 if (!in_array($current_page, $public_pages)) {
-    if (function_exists('checkAuth')) {
-        checkAuth();
-    } else {
-        // Fallback : vérification manuelle
-        if (!isset($_SESSION['user_id']) || empty($_SESSION['user_id'])) {
-            header('Location: ' . BASE_URL . 'login.php?timeout=1');
-            exit;
-        }
-    }
-}
-
-// ========================================
-// RAFRAÎCHIR LE TIMER APRÈS VÉRIFICATION
-// ========================================
-if (isset($_SESSION['user_id'])) {
-    $_SESSION['last_activity'] = time();
+    checkAuth();
 }
 
 // ========================================
@@ -123,6 +77,7 @@ $roleLabels = [
     'directeur'  => 'Directeur',
     'enseignant' => 'Enseignant',
     'parent'     => 'Parent',
+    'eleve'      => 'Élève',
     'user'       => 'Utilisateur',
 ];
 $user_role_label = $roleLabels[$user_role] ?? 'Utilisateur';
@@ -133,6 +88,7 @@ $roleColors = [
     'directeur'  => 'linear-gradient(135deg, #0EA5E9, #3B82F6)',
     'enseignant' => 'linear-gradient(135deg, #10B981, #059669)',
     'parent'     => 'linear-gradient(135deg, #F59E0B, #D97706)',
+    'eleve'      => 'linear-gradient(135deg, #EC4899, #DB2777)',
     'user'       => 'linear-gradient(135deg, #6B7280, #4B5563)',
 ];
 $avatar_color = $roleColors[$user_role] ?? $roleColors['user'];
@@ -617,14 +573,24 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                 <?php if ($isLoggedIn): ?>
                 <!-- Menu pour utilisateur connecté -->
                 <ul class="navbar-nav me-auto">
+                    <?php if (hasRole(ROLE_ELEVE)): ?>
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>" 
+                        <a class="nav-link active" href="<?php echo BASE_URL; ?>modules/espace_eleve/index.php">
+                            <i class="bi bi-mortarboard-fill"></i>
+                            Mes notes
+                        </a>
+                    </li>
+                    <?php else: ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"
                            href="<?php echo BASE_URL; ?>index.php">
                             <i class="bi bi-grid-1x2-fill"></i>
                             Tableau de bord
                         </a>
                     </li>
+                    <?php endif; ?>
 
+                    <?php if (hasRole(ROLES_PEDAGOGIE)): ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                             <i class="bi bi-people-fill"></i>
@@ -634,9 +600,11 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/eleves/index.php">
                                 <i class="bi bi-list-ul"></i> Liste des élèves
                             </a></li>
+                            <?php if (hasRole(ROLES_GESTION)): ?>
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/eleves/ajouter.php">
                                 <i class="bi bi-person-plus"></i> Ajouter un élève
                             </a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
 
@@ -649,9 +617,11 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/classes/index.php">
                                 <i class="bi bi-list-ul"></i> Liste des classes
                             </a></li>
+                            <?php if (hasRole(ROLES_GESTION)): ?>
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/classes/ajouter.php">
                                 <i class="bi bi-plus-circle"></i> Ajouter une classe
                             </a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
 
@@ -664,9 +634,11 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/matieres/index.php">
                                 <i class="bi bi-list-ul"></i> Liste des matières
                             </a></li>
+                            <?php if (hasRole(ROLES_GESTION)): ?>
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/matieres/ajouter.php">
                                 <i class="bi bi-plus-circle"></i> Ajouter une matière
                             </a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
 
@@ -695,6 +667,17 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             Bulletins
                         </a>
                     </li>
+                    <?php endif; ?>
+
+                    <?php if (hasRole(ROLES_ADMIN)): ?>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'utilisateurs') !== false ? 'active' : ''; ?>"
+                           href="<?php echo BASE_URL; ?>modules/utilisateurs/index.php">
+                            <i class="bi bi-person-gear"></i>
+                            Comptes
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
 
                 <!-- Right section - Connecté -->
@@ -731,9 +714,11 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             <a class="dropdown-item" href="<?php echo BASE_URL; ?>settings.php">
                                 <i class="bi bi-gear"></i> Paramètres
                             </a>
+                            <?php if (hasRole(ROLES_PEDAGOGIE)): ?>
                             <a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/notes/index.php">
                                 <i class="bi bi-pencil"></i> Mes notes
                             </a>
+                            <?php endif; ?>
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item text-danger" href="<?php echo BASE_URL; ?>logout.php">
                                 <i class="bi bi-box-arrow-right"></i> Se déconnecter

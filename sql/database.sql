@@ -96,10 +96,14 @@ CREATE TABLE users (
     prenom VARCHAR(50) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'directeur', 'enseignant', 'parent', 'user') NOT NULL DEFAULT 'user',
+    role ENUM('admin', 'directeur', 'enseignant', 'parent', 'eleve', 'user') NOT NULL DEFAULT 'user',
+    -- Fiche élève liée au compte (rôle 'eleve' uniquement) : un compte par élève,
+    -- supprimé avec la fiche de l'élève
+    id_eleve INT NULL UNIQUE,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     last_login DATETIME NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_eleve) REFERENCES eleve(id_eleve) ON DELETE CASCADE
 );
 
 -- Insertion de données de test
