@@ -7,6 +7,18 @@ if (session_status() === PHP_SESSION_NONE) {
 // Durée de session en secondes (5 minutes = 300 secondes)
 define('SESSION_TIMEOUT', 300);
 
+// URL de base de l'application (déjà définie si header.php ou index.php est passé avant)
+if (!defined('BASE_URL')) {
+    $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+    // Remonter à la racine depuis modules/xxx/ ou api/
+    if (strpos($scriptDir, '/modules/') !== false) {
+        $scriptDir = substr($scriptDir, 0, strpos($scriptDir, '/modules/'));
+    }
+    $scriptDir = preg_replace('#/(api|config|includes)$#', '', $scriptDir);
+    $baseUrl = rtrim($scriptDir, '/') . '/';
+    define('BASE_URL', $baseUrl === '//' ? '/' : $baseUrl);
+}
+
 // Vérifier si l'utilisateur est connecté
 function isLoggedIn() {
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
@@ -26,7 +38,7 @@ function checkAuth() {
     // Vérifier si l'utilisateur est connecté
     if (!isLoggedIn()) {
         // Rediriger vers la page de connexion
-        header('Location: login.php');
+        header('Location: ' . BASE_URL . 'login.php');
         exit;
     }
     
@@ -37,7 +49,7 @@ function checkAuth() {
         session_destroy();
         
         // Rediriger vers la page de connexion avec message
-        header('Location: login.php?timeout=1');
+        header('Location: ' . BASE_URL . 'login.php?timeout=1');
         exit;
     }
     

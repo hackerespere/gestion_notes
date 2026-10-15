@@ -1,6 +1,14 @@
 <?php
 header('Content-Type: application/json');
+require_once '../config/session.php';
 require_once '../config/database.php';
+
+// API JSON : pas de redirection vers login.php, on renvoie un 401
+if (!isLoggedIn() || isSessionExpired()) {
+    http_response_code(401);
+    echo json_encode(['erreur' => 'Non connecté']);
+    exit;
+}
 
 $database = new Database();
 $db = $database->getConnection();

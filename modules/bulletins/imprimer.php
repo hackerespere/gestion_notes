@@ -1,11 +1,15 @@
 <?php
+require_once '../../config/session.php';
 require_once '../../config/database.php';
+
+// Page sans header.php (impression) : vérifier la connexion ici
+checkAuth();
 
 $database = new Database();
 $db = $database->getConnection();
 
-$eleve_id = isset($_GET['eleve_id']) ? $_GET['eleve_id'] : null;
-$trimestre_id = isset($_GET['trimestre_id']) ? $_GET['trimestre_id'] : null;
+$eleve_id = isset($_GET['eleve_id']) ? (int) $_GET['eleve_id'] : null;
+$trimestre_id = isset($_GET['trimestre_id']) ? (int) $_GET['trimestre_id'] : null;
 
 if(!$eleve_id || !$trimestre_id) {
     die('Paramètres manquants');
@@ -66,13 +70,17 @@ function generateBulletin($db, $id_eleve, $id_trimestre) {
 
 $bulletin_data = generateBulletin($db, $eleve_id, $trimestre_id);
 
+if(!$bulletin_data['eleve']) {
+    die('Élève introuvable');
+}
+
 // Pour une version PDF simple, on utilise la fonction print CSS
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Bulletin - <?php echo $bulletin_data['eleve']['nom']; ?></title>
+    <title>Bulletin - <?php echo htmlspecialchars($bulletin_data['eleve']['nom']); ?></title>
     <style>
         body { font-family: Arial, sans-serif; margin: 50px; }
         .header { text-align: center; margin-bottom: 30px; }
@@ -94,14 +102,14 @@ $bulletin_data = generateBulletin($db, $eleve_id, $trimestre_id);
 <body>
     <div class="header">
         <h1>BULLETIN SCOLAIRE</h1>
-        <h3><?php echo $bulletin_data['eleve']['nom'] . ' ' . $bulletin_data['eleve']['prenom']; ?></h3>
+        <h3><?php echo htmlspecialchars($bulletin_data['eleve']['nom'] . ' ' . $bulletin_data['eleve']['prenom']); ?></h3>
     </div>
 
     <div class="info">
         <table>
             <tr>
-                <td><strong>Classe :</strong> <?php echo $bulletin_data['eleve']['nom_classe']; ?></td>
-                <td><strong>Niveau :</strong> <?php echo $bulletin_data['eleve']['niveau']; ?></td>
+                <td><strong>Classe :</strong> <?php echo htmlspecialchars($bulletin_data['eleve']['nom_classe']); ?></td>
+                <td><strong>Niveau :</strong> <?php echo htmlspecialchars($bulletin_data['eleve']['niveau']); ?></td>
             </tr>
             <tr>
                 <td><strong>Date de naissance :</strong> <?php echo date('d/m/Y', strtotime($bulletin_data['eleve']['date_naiss'])); ?></td>
@@ -133,7 +141,7 @@ $bulletin_data = generateBulletin($db, $eleve_id, $trimestre_id);
                 }
             ?>
             <tr>
-                <td><?php echo $matiere; ?></td>
+                <td><?php echo htmlspecialchars($matiere); ?></td>
                 <td><?php echo implode(' - ', $notes_str); ?></td>
                 <td><?php echo number_format($moy, 2); ?></td>
                 <td><?php echo $data['coef']; ?></td>

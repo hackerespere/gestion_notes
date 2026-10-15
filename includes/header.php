@@ -70,8 +70,8 @@ if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
     if (empty($_SESSION['login_time'])) {
         $_SESSION['login_time'] = $_SESSION['last_activity'];
     }
-    // Rafraîchir AVANT checkAuth pour éviter faux positif
-    $_SESSION['last_activity'] = time();
+    // Ne pas rafraîchir last_activity ici : checkAuth() doit d'abord vérifier l'inactivité,
+    // sinon la session n'expire jamais côté serveur. Le rafraîchissement se fait plus bas.
 }
 
 // ========================================

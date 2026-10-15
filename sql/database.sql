@@ -85,7 +85,20 @@ CREATE TABLE saisir (
     id_note INT,
     id_enseignant INT,
     PRIMARY KEY (id_note, id_enseignant)
-    
+
+);
+
+-- Table USERS (comptes de connexion, utilisée par login.php)
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    nom VARCHAR(50) NOT NULL,
+    prenom VARCHAR(50) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'directeur', 'enseignant', 'parent', 'user') NOT NULL DEFAULT 'user',
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    last_login DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Insertion de données de test
