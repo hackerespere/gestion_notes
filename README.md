@@ -81,3 +81,17 @@ Conçue pour les collèges, lycées, universités et centres de formation, l’a
 1. Cloner le dépôt  
    ```bash
    git clone https://github.com/votre-compte/gestion_notes.git
+
+---
+
+## Assistant IA
+
+Un assistant de discussion (bouton en bas à droite) répond aux questions de chaque utilisateur selon son rôle :
+- un élève sur ses notes ;
+- un parent sur celles de ses enfants ;
+- l'équipe pédagogique et la direction sur les classes et l'établissement.
+
+Il n'accède qu'aux données permises par le rôle. Il ne modifie rien lui-même : une saisie de note est seulement proposée, puis validée par l'enseignant.
+
+- Fournisseurs : **Google Gemini** puis **Groq** (API externes), avec **Ollama** (modèle local) en dernier secours, configurables dans `.env`.
+- Documentation complète (installation, intégration, codage, livrables) : [docs/ASSISTANT_IA.md](docs/ASSISTANT_IA.md).

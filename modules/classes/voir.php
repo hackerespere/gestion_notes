@@ -1,6 +1,7 @@
 <?php
 require_once '../../config/session.php';
 require_once '../../config/database.php';
+require_once '../../includes/bulletin.php';
 
 requireRole(ROLES_PEDAGOGIE);
 
@@ -29,44 +30,24 @@ $stmt = $db->prepare("SELECT id_eleve, nom, prenom, sexe, date_naiss
 $stmt->execute([':id' => $id_classe]);
 $eleves = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Notes des élèves de la classe (filtrées par trimestre si choisi)
-$sql = "SELECT o.id_eleve, n.valeur, m.nom_matiere, m.coef
+// Moyenne générale de chaque élève (calcul commun au bulletin), filtrée par trimestre si choisi
+$moyennes = moyennesClasse($db, $id_classe, $id_trimestre);
+
+// Nombre de notes de chaque élève
+$sql = "SELECT o.id_eleve, COUNT(*) AS nb
         FROM eleve e
-        JOIN obtenir o     ON o.id_eleve = e.id_eleve
-        JOIN note n        ON n.id_note = o.id_note
-        JOIN porter_sur ps ON ps.id_note = n.id_note
-        JOIN matiere m     ON m.id_matiere = ps.id_matiere
-        JOIN durant d      ON d.id_note = n.id_note
+        JOIN obtenir o ON o.id_eleve = e.id_eleve
+        JOIN durant d  ON d.id_note = o.id_note
         WHERE e.id_classe = :id"
-     . ($id_trimestre > 0 ? " AND d.id_trimestre = :tri" : "");
+     . ($id_trimestre > 0 ? " AND d.id_trimestre = :tri" : "")
+     . " GROUP BY o.id_eleve";
 $stmt = $db->prepare($sql);
 $stmt->bindValue(':id', $id_classe, PDO::PARAM_INT);
 if ($id_trimestre > 0) {
     $stmt->bindValue(':tri', $id_trimestre, PDO::PARAM_INT);
 }
 $stmt->execute();
-
-// Regrouper par élève puis par matière
-$notes_par_eleve = [];
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $notes_par_eleve[$row['id_eleve']][$row['nom_matiere']]['coef'] = $row['coef'];
-    $notes_par_eleve[$row['id_eleve']][$row['nom_matiere']]['valeurs'][] = $row['valeur'];
-}
-
-// Moyenne générale de chaque élève : moyenne par matière pondérée par les coefficients
-$moyennes = [];
-$nb_notes = [];
-foreach ($notes_par_eleve as $id_eleve => $matieres) {
-    $somme = 0;
-    $total_coef = 0;
-    $nb_notes[$id_eleve] = 0;
-    foreach ($matieres as $matiere) {
-        $somme += (array_sum($matiere['valeurs']) / count($matiere['valeurs'])) * $matiere['coef'];
-        $total_coef += $matiere['coef'];
-        $nb_notes[$id_eleve] += count($matiere['valeurs']);
-    }
-    $moyennes[$id_eleve] = $total_coef > 0 ? $somme / $total_coef : null;
-}
+$nb_notes = array_map('intval', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
 
 // Statistiques de la classe
 $nb_eleves = count($eleves);

@@ -1,0 +1,50 @@
+@startuml sequence
+title Assistant IA — séquence d'une question (Groq indisponible, secours Ollama)
+autonumber
+actor Élève as E
+participant "Widget" as W
+participant "api/assistant.php" as A
+participant "session.php" as S
+database "MariaDB\n(journal, cache)" as J
+participant "Assistant" as O
+participant "Groq" as G
+participant "Ollama" as L
+participant "Outil mes_notes" as T
+
+E -> W : question
+W -> A : POST {message} + X-CSRF-Token
+A -> S : session, compte actif, CSRF
+alt refus
+  A --> W : 401 / 403
+end
+A -> J : quota horaire ?
+alt quota dépassé
+  A --> W : 429 limite
+end
+A -> J : question en cache ?
+alt en cache
+  A --> W : 200 source=cache
+end
+A -> O : repondre(historique)
+O -> G : chat(messages, outils)
+G --x O : timeout
+O -> G : nouvelle tentative (0,5 s)
+G --x O : HTTP 503
+note over O : fournisseur suivant
+O -> L : chat(messages, outils)
+L --> O : tool_call mes_notes(id_trimestre=1)
+O -> T : exécuter (id_eleve de la SESSION)
+T -> J : SQL préparé, moyennes en PHP
+T --> O : données minimisées
+O -> L : résultat de l'outil
+L --> O : texte final
+O -> O : valider la réponse
+O --> A : réponse, fournisseur=ollama, échecs
+A -> J : journaliser, mettre en cache
+A --> W : 200 {reponse, source=modele, fournisseur}
+W -> E : affichage textContent + avis
+alt tous les fournisseurs en échec
+  A -> J : réponse de moins de 24 h ?
+  A --> W : 200 source=secours ou 503 message de repli
+end
+@enduml

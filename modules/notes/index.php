@@ -316,6 +316,9 @@ if($total_notes > 0) {
                             <td><?php echo date('d/m/Y', strtotime($note['date_note'])); ?></td>
                             <td>
                                 <?php if (peutGererNote($note['id_enseignant'])): ?>
+                                <a href="modifier.php?id=<?php echo (int) $note['id_note']; ?>" class="btn btn-sm btn-outline-secondary" title="Modifier">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
                                 <form method="post" action="supprimer.php" class="d-inline m-0"
                                       onsubmit="return confirm('Confirmer la suppression de cette note ?')">
                                     <?php echo csrfField(); ?>

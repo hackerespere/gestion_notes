@@ -3,6 +3,7 @@ require_once '../../config/session.php';
 requireRole(ROLES_PEDAGOGIE);
 require_once '../../includes/header.php';
 require_once '../../config/database.php';
+require_once '../../includes/bulletin.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -40,94 +41,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             $bulletin_data = generateBulletin($db, $id_eleve, $id_trimestre);
         }
     }
-}
-
-function generateBulletin($db, $id_eleve, $id_trimestre) {
-    // Récupérer les infos de l'élève
-    $query = "SELECT e.*, c.nom_classe, c.niveau 
-              FROM eleve e 
-              JOIN classe c ON e.id_classe = c.id_classe 
-              WHERE e.id_eleve = :id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id', $id_eleve);
-    $stmt->execute();
-    $eleve = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    // Récupérer les notes de l'élève pour le trimestre
-    $query = "SELECT n.*, m.nom_matiere, m.coef 
-              FROM note n
-              JOIN obtenir o ON n.id_note = o.id_note
-              JOIN porter_sur ps ON n.id_note = ps.id_note
-              JOIN matiere m ON ps.id_matiere = m.id_matiere
-              JOIN durant d ON n.id_note = d.id_note
-              WHERE o.id_eleve = :id_eleve AND d.id_trimestre = :id_trimestre
-              ORDER BY m.nom_matiere";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id_eleve', $id_eleve);
-    $stmt->bindParam(':id_trimestre', $id_trimestre);
-    $stmt->execute();
-    $notes = $stmt->fetchAll();
-
-    // Calculer les moyennes par matière
-    $matieres = [];
-    foreach($notes as $note) {
-        $matiere = $note['nom_matiere'];
-        if(!isset($matieres[$matiere])) {
-            $matieres[$matiere] = [
-                'total' => 0, 
-                'count' => 0, 
-                'coef' => $note['coef'],
-                'notes' => []
-            ];
-        }
-        $matieres[$matiere]['total'] += $note['valeur'];
-        $matieres[$matiere]['count']++;
-        $matieres[$matiere]['notes'][] = $note['valeur'];
-    }
-
-    // Calculer la moyenne générale
-    $moyenne_generale = 0;
-    $total_coef = 0;
-    foreach($matieres as $matiere => $data) {
-        $moy = $data['total'] / $data['count'];
-        $moyenne_generale += $moy * $data['coef'];
-        $total_coef += $data['coef'];
-    }
-    if($total_coef > 0) {
-        $moyenne_generale /= $total_coef;
-    }
-
-    // Calculer le rang de l'élève dans la classe
-    $rang = 0;
-    $total_eleves_classe = 0;
-    $query_rang = "SELECT e.id_eleve, 
-                   (SELECT AVG(n.valeur) FROM note n 
-                    JOIN obtenir o ON n.id_note = o.id_note 
-                    JOIN durant d ON n.id_note = d.id_note 
-                    WHERE o.id_eleve = e.id_eleve AND d.id_trimestre = :id_trimestre) as moyenne
-                   FROM eleve e
-                   WHERE e.id_classe = (SELECT id_classe FROM eleve WHERE id_eleve = :id_eleve)";
-    $stmt_rang = $db->prepare($query_rang);
-    $stmt_rang->bindParam(':id_trimestre', $id_trimestre);
-    $stmt_rang->bindParam(':id_eleve', $id_eleve);
-    $stmt_rang->execute();
-    $moyennes_classe = $stmt_rang->fetchAll(PDO::FETCH_ASSOC);
-    
-    $total_eleves_classe = count($moyennes_classe);
-    $moyennes_triees = array_column($moyennes_classe, 'moyenne');
-    rsort($moyennes_triees);
-    
-    $moyenne_eleve = $moyenne_generale;
-    $rang = array_search($moyenne_eleve, $moyennes_triees) + 1;
-
-    return [
-        'eleve' => $eleve,
-        'notes' => $notes,
-        'matieres' => $matieres,
-        'moyenne_generale' => $moyenne_generale,
-        'rang' => $rang,
-        'total_eleves_classe' => $total_eleves_classe
-    ];
 }
 ?>
 
@@ -245,7 +158,7 @@ function generateBulletin($db, $id_eleve, $id_trimestre) {
             </div>
             <div class="student-rank">
                 <div class="rank-circle">
-                    <span class="rank-number"><?php echo $bulletin_data['rang']; ?></span>
+                    <span class="rank-number"><?php echo $bulletin_data['rang'] ?? '—'; ?></span>
                     <span class="rank-label">Rang</span>
                 </div>
                 <div class="rank-total">sur <?php echo $bulletin_data['total_eleves_classe']; ?> élèves</div>

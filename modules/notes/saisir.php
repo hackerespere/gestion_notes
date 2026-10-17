@@ -45,6 +45,12 @@ $selected_eleve = isset($_GET['eleve_id']) ? $_GET['eleve_id'] : '';
 // Vérifier si une matière est pré-sélectionnée
 $selected_matiere = isset($_GET['matiere_id']) ? $_GET['matiere_id'] : '';
 
+// Pré-remplissage depuis une proposition de l'assistant IA : rien n'est enregistré
+// tant que l'enseignant n'a pas vérifié puis validé le formulaire lui-même
+$selected_trimestre = isset($_GET['trimestre_id']) ? (int) $_GET['trimestre_id'] : 0;
+$selected_valeur = isset($_GET['valeur']) && is_numeric($_GET['valeur']) ? (float) $_GET['valeur'] : '';
+$selected_type = $_GET['type_note'] ?? '';
+
 // Formulaire refusé si le jeton CSRF est absent ou invalide
 if(csrfError()) {
     $error = csrfError();
@@ -291,7 +297,7 @@ if($selected_eleve) {
                                     <select class="form-select" id="id_trimestre" name="id_trimestre" required>
                                         <option value="">Sélectionner un trimestre</option>
                                         <?php foreach($trimestres as $trimestre): ?>
-                                            <option value="<?php echo $trimestre['id_trimestre']; ?>">
+                                            <option value="<?php echo $trimestre['id_trimestre']; ?>" <?php echo (int) $trimestre['id_trimestre'] === $selected_trimestre ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($trimestre['libelle']); ?>
                                                 (<?php echo date('d/m', strtotime($trimestre['date_debut'])); ?> - 
                                                 <?php echo date('d/m', strtotime($trimestre['date_fin'])); ?>)
@@ -313,7 +319,8 @@ if($selected_eleve) {
                                     <span class="input-group-text"><i class="bi bi-star"></i></span>
                                     <input type="number" class="form-control" 
                                            id="valeur" name="valeur" 
-                                           step="0.25" min="0" max="20" 
+                                           step="0.25" min="0" max="20"
+                                           value="<?php echo htmlspecialchars((string) $selected_valeur); ?>"
                                            placeholder="0-20" required>
                                     <span class="input-group-text">/20</span>
                                 </div>
@@ -326,11 +333,9 @@ if($selected_eleve) {
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-tag"></i></span>
                                     <select class="form-select" id="type_note" name="type_note">
-                                        <option value="Contrôle">Contrôle</option>
-                                        <option value="Devoir">Devoir</option>
-                                        <option value="Composition">Composition</option>
-                                        <option value="TP">TP</option>
-                                        <option value="Interrogation">Interrogation</option>
+                                        <?php foreach (['Contrôle', 'Devoir', 'Composition', 'TP', 'Interrogation'] as $type): ?>
+                                        <option value="<?php echo $type; ?>" <?php echo $selected_type === $type ? 'selected' : ''; ?>><?php echo $type; ?></option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
                             </div>

@@ -69,24 +69,32 @@ function checkAuth() {
         exit;
     }
 
-    // Relire le compte en base : un compte désactivé ou supprimé perd l'accès immédiatement,
-    // et un changement de rôle s'applique sans attendre une nouvelle connexion
+    if (!refreshAccount()) {
+        logout();
+        header('Location: ' . BASE_URL . 'login.php');
+        exit;
+    }
+
+    // Mettre à jour le timestamp de la dernière activité
+    $_SESSION['last_activity'] = time();
+}
+
+// Relire le compte en base : un compte désactivé ou supprimé perd l'accès immédiatement,
+// et un changement de rôle s'applique sans attendre une nouvelle connexion.
+// Renvoie false si le compte n'existe plus ou est désactivé.
+function refreshAccount() {
     $stmt = (new Database())->getConnection()->prepare("SELECT role, id_eleve, id_enseignant, status FROM users WHERE id = :id");
     $stmt->execute([':id' => $_SESSION['user_id']]);
     $compte = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$compte || $compte['status'] !== 'active') {
-        logout();
-        header('Location: ' . BASE_URL . 'login.php');
-        exit;
+        return false;
     }
     $_SESSION['user_role'] = $compte['role'];
     $_SESSION['id_eleve']  = $compte['role'] === ROLE_ELEVE ? (int) $compte['id_eleve'] : null;
     $_SESSION['id_enseignant'] = $compte['role'] === ROLE_ENSEIGNANT && $compte['id_enseignant']
         ? (int) $compte['id_enseignant'] : null;
-
-    // Mettre à jour le timestamp de la dernière activité
-    $_SESSION['last_activity'] = time();
+    return true;
 }
 
 // ========================================
@@ -181,7 +189,11 @@ function csrfField() {
 
 // Vérifier le jeton CSRF envoyé par un formulaire POST
 function verifyCsrf() {
-    $token = $_POST['csrf_token'] ?? '';
+    return verifyCsrfToken($_POST['csrf_token'] ?? '');
+}
+
+// Vérifier un jeton CSRF reçu autrement (ex. en-tête X-CSRF-Token d'un appel fetch)
+function verifyCsrfToken($token) {
     return !empty($_SESSION['csrf_token']) && is_string($token)
         && hash_equals($_SESSION['csrf_token'], $token);
 }

@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Auto-hide des alertes
-    const alerts = document.querySelectorAll('.alert');
+    // Masquer automatiquement les messages flash (alertes refermables) ; les alertes fixes restent
+    const alerts = document.querySelectorAll('.alert-dismissible');
     alerts.forEach(alert => {
         setTimeout(() => {
             alert.style.transition = 'opacity 0.5s ease';
@@ -62,28 +62,4 @@ function showNotification(message, type = 'success') {
     `;
     document.body.appendChild(alertDiv);
     setTimeout(() => alertDiv.remove(), 5000);
-}
-
-// Fonction pour exporter en CSV
-function exportToCSV(tableId, filename = 'export.csv') {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-    
-    const rows = table.querySelectorAll('tr');
-    let csv = [];
-    
-    rows.forEach(row => {
-        const cols = row.querySelectorAll('td, th');
-        const rowData = [];
-        cols.forEach(col => rowData.push(col.textContent.trim()));
-        csv.push(rowData.join(','));
-    });
-    
-    const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    window.URL.revokeObjectURL(url);
 }

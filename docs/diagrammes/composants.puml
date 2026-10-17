@@ -1,0 +1,50 @@
+@startuml composants
+title Assistant IA — diagramme de composants
+skinparam componentStyle uml2
+
+package "Navigateur" {
+  [Widget assistant\njs/assistant.js] as Widget
+  [Formulaire de saisie\nnotes/saisir.php] as Saisie
+}
+
+package "Serveur PHP" {
+  [API assistant\napi/assistant.php] as API
+  [Session et rôles\nconfig/session.php] as Session
+  [Orchestrateur\nAssistant.php] as Orch
+  [Outils métier\ntools.php] as Tools
+  [Calculs partagés\nbulletin.php, eleve_notes.php] as Calc
+  [Journal, quota, cache\njournal.php] as Journal
+  [Supervision IA\nmodules/supervision_ia] as Sup
+  interface AIProvider
+  [OpenAICompatibleProvider] as Prov
+  [GeminiProvider] as Gem
+}
+
+database "MariaDB" as DB {
+  [notes, élèves, users]
+  [ai_logs, ai_cache]
+}
+
+cloud "Google Gemini (externe)" as Gemini
+cloud "Groq (externe)" as Groq
+node "Ollama (local)" as Ollama
+
+Widget --> API : POST JSON\nX-CSRF-Token
+API --> Session : identité, rôle, CSRF
+API --> Journal : quota, cache, journal
+API --> Orch : historique
+Orch --> Tools : appels d'outils
+Tools --> Calc
+Calc --> DB
+Tools --> DB
+Journal --> DB
+Sup --> Journal
+Orch --> AIProvider
+Prov ..|> AIProvider
+Gem ..|> AIProvider
+Gem --> Gemini : HTTPS generateContent
+Prov ..> Groq : secours 1\nHTTPS /chat/completions
+Prov ..> Ollama : secours 2\nHTTP localhost
+Widget ..> Saisie : action proposée\n(lien pré-rempli)
+Saisie --> DB : écriture après\nvalidation humaine
+@enduml

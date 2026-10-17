@@ -650,6 +650,11 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                             <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/enseignants/index.php">
                                 <i class="bi bi-person-badge"></i> Enseignants
                             </a></li>
+                            <?php if (hasRole(ROLES_GESTION)): ?>
+                            <li><a class="dropdown-item" href="<?php echo BASE_URL; ?>modules/trimestres/index.php">
+                                <i class="bi bi-calendar-range"></i> Trimestres
+                            </a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
 
@@ -686,6 +691,13 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
                            href="<?php echo BASE_URL; ?>modules/utilisateurs/index.php">
                             <i class="bi bi-person-gear"></i>
                             Comptes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo strpos($_SERVER['PHP_SELF'], 'supervision_ia') !== false ? 'active' : ''; ?>"
+                           href="<?php echo BASE_URL; ?>modules/supervision_ia/index.php">
+                            <i class="bi bi-activity"></i>
+                            Supervision IA
                         </a>
                     </li>
                     <?php endif; ?>
@@ -775,7 +787,10 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
         baseUrl: '<?php echo BASE_URL; ?>',
         sessionTimeout: <?php echo (int) $session_timeout; ?>,
         lastActivity: <?php echo (int) $last_activity; ?>,
-        isLoggedIn: <?php echo $isLoggedIn ? 'true' : 'false'; ?>
+        isLoggedIn: <?php echo $isLoggedIn ? 'true' : 'false'; ?>,
+        // Assistant IA : tout compte connecté ayant accès à des données (pas le rôle « user »)
+        assistant: <?php echo $isLoggedIn && $user_role !== 'user' ? 'true' : 'false'; ?>,
+        csrfToken: <?php echo json_encode($isLoggedIn ? csrfToken() : ''); ?>
     };
 
     // ========================================
@@ -1004,5 +1019,8 @@ $time_remaining  = max(0, $session_timeout - (time() - $last_activity));
         document.head.appendChild(styleSheet);
     })();
     </script>
+    <?php if ($isLoggedIn && $user_role !== 'user'): ?>
+    <script src="<?php echo BASE_URL; ?>js/assistant.js" defer></script>
+    <?php endif; ?>
 </body>
 </html>

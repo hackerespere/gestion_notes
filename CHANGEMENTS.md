@@ -15,7 +15,8 @@ Les changements sont présentés dans l'ordre où ils ont été faits, en suivan
 4. [Enseignants, espace parent et profil](#4-enseignants-espace-parent-et-profil)
 5. [Données de démonstration](#5-données-de-démonstration)
 6. [Installation et mise à jour](#6-installation-et-mise-à-jour)
-7. [Ce qui reste à faire](#7-ce-qui-reste-à-faire)
+7. [Assistant IA et nettoyage](#7-assistant-ia-et-nettoyage)
+8. [Ce qui reste à faire](#8-ce-qui-reste-à-faire)
 
 ---
 
@@ -208,13 +209,30 @@ Ensuite, relier chaque compte enseignant existant à sa fiche, dans le menu « C
 
 ---
 
-## 7. Ce qui reste à faire
+## 7. Assistant IA et nettoyage
 
-- **Assistant IA** (plan détaillé dans `analyse.md`) : un assistant de discussion qui répond à chacun selon son rôle, sans jamais donner accès aux données d'un autre. Tous les prérequis de sécurité sont en place. Il faut une clé API Anthropic et Composer.
-- **Modifier une note** : aujourd'hui, il faut la supprimer puis la ressaisir.
-- **Gérer les trimestres** : ils sont fixés dans `database.sql`, sans page de gestion.
-- **Nettoyage technique :**
-  - `generateBulletin()` est dupliquée entre `bulletins/index.php` et `imprimer.php` ;
-  - le CSS est copié dans chaque page ;
-  - le chemin de `js/script.js` est incorrect depuis la racine ;
-  - il y a une faute dans le pied de page (« Developper par »).
+Le détail complet (installation, intégration, codage, livrables de l'exposé) se trouve dans [`docs/ASSISTANT_IA.md`](docs/ASSISTANT_IA.md).
+
+| Changement | Pourquoi |
+|---|---|
+| **Assistant IA** : widget, `api/assistant.php`, `includes/ai/`, page *Supervision IA* | Répondre aux questions de chaque rôle en langage naturel, sans jamais donner accès aux données d'un autre |
+| Groq (API gratuite) + Ollama (local) au lieu de Claude + Composer, comme prévu dans `analyse.md` | Les deux exposent la même API : pas de SDK, pas de Composer, fournisseur interchangeable via `.env`, secours local |
+| Tables `ai_logs` et `ai_cache` (`sql/migration_assistant_ia.sql` pour une base existante) | Supervision, quotas, coûts, avis, cache et réponse de secours |
+| **`generateBulletin()` et le calcul des moyennes de classe regroupés dans `includes/bulletin.php`** | Le code était copié dans trois fichiers. L'assistant doit donner exactement les mêmes chiffres que les pages |
+| **Bug corrigé : le rang du bulletin valait presque toujours 1** | La moyenne pondérée de l'élève était comparée à des moyennes **non pondérées**. Elle n'était donc jamais retrouvée, et `array_search` renvoyait `false`, soit un rang de 1 |
+| `notes/saisir.php` accepte un pré-remplissage (`trimestre_id`, `valeur`, `type_note`) | L'assistant **propose** une saisie : l'enseignant vérifie le formulaire pré-rempli et le valide lui-même |
+| Chemin de `js/script.js` absolu dans le pied de page ; faute « Développé par » corrigée | Le script n'était jamais chargé depuis les pages des modules |
+| `js/script.js` : suppression de son `exportToCSV()` global, masquage automatique limité aux messages flash | Une fois chargé partout, il aurait écrasé l'export CSV des pages Élèves, Classes et Notes, et fait disparaître au bout de 5 s les messages d'erreur fixes |
+| **Modifier une note** (`modules/notes/modifier.php`, bouton crayon) | Avant, il fallait supprimer puis ressaisir. Les droits sont les mêmes que pour la suppression : la direction modifie tout, un enseignant seulement ses notes. L'élève et la matière restent fixes |
+| **Gérer les trimestres** (`modules/trimestres/`, menu Matières > Trimestres, direction) | Les trimestres étaient fixés dans `database.sql`. Les dates sont validées et ne doivent pas se chevaucher ; un trimestre qui a des notes ne peut pas être supprimé |
+| **Google Gemini** comme fournisseur principal (`includes/ai/GeminiProvider.php`, `GEMINI_*` dans `.env`) ; appel HTTP mis en commun dans `includes/ai/http.php` | Un modèle performant avec offre gratuite, qui ne charge pas la machine. L'API de Google n'a pas le format OpenAI : l'adaptateur montre qu'on change de fournisseur sans toucher à `Assistant` ni au reste de l'application |
+| Modèles retirés par les fournisseurs remplacés : `gemini-3.8-flash` (au lieu de `gemini-2.5-flash`), `qwen/qwen3.8-27b` chez Groq (au lieu de `llama-3.3-70b-versatile`) ; second modèle `gemini_lite` | Les anciens modèles renvoyaient HTTP 404. Le quota gratuit de Gemini est compté par modèle (20 requêtes/jour pour 3.8 Flash) : un second modèle double la capacité sans code |
+| `stats_globales` renvoie `nb_eleves_total` et `nb_classes` | `qwen2.5:3b` (Ollama) répondait « 1098 élèves » : il prenait le nombre de notes pour le nombre d'élèves. Les totaux sont désormais calculés en PHP, comme les autres chiffres |
+| Délai propre à chaque fournisseur (`{NOM}_TIMEOUT`, ici `OLLAMA_TIMEOUT=90`) ; message d'erreur du fournisseur écrit dans le journal du serveur | Le premier appel à Ollama charge le modèle dans la carte graphique et dépassait 30 s. Le message du fournisseur a permis de trouver le bug des outils sans paramètre avec Gemini |
+| **Coût pour 1 000 questions** dans la page *Supervision IA* | Comparer le coût réel de l'API avec l'estimation de `docs/couts.md` et avec le coût fixe d'un modèle local |
+
+## 8. Ce qui reste à faire
+
+- **Nettoyage technique** : le CSS est encore copié dans chaque page (bloc `<style>` par fichier). Cela ne gêne pas le fonctionnement.
+
+- **Purge du journal `ai_logs`** : elle n'est pas automatisée (durée suggérée : 1 an, voir `docs/securite_donnees.md`).

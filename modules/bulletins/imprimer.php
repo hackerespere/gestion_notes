@@ -1,6 +1,7 @@
 <?php
 require_once '../../config/session.php';
 require_once '../../config/database.php';
+require_once '../../includes/bulletin.php';
 
 // Page sans header.php (impression) : vérifier la connexion ici
 requireRole(array_merge(ROLES_PEDAGOGIE, [ROLE_ELEVE, ROLE_PARENT]));
@@ -24,59 +25,6 @@ $trimestre_id = isset($_GET['trimestre_id']) ? (int) $_GET['trimestre_id'] : nul
 
 if(!$eleve_id || !$trimestre_id) {
     die('Paramètres manquants');
-}
-
-// Fonction pour générer le bulletin (identique à index.php)
-function generateBulletin($db, $id_eleve, $id_trimestre) {
-    $query = "SELECT e.*, c.nom_classe, c.niveau 
-              FROM eleve e 
-              JOIN classe c ON e.id_classe = c.id_classe 
-              WHERE e.id_eleve = :id";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id', $id_eleve);
-    $stmt->execute();
-    $eleve = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $query = "SELECT n.*, m.nom_matiere, m.coef 
-              FROM note n
-              JOIN obtenir o ON n.id_note = o.id_note
-              JOIN porter_sur ps ON n.id_note = ps.id_note
-              JOIN matiere m ON ps.id_matiere = m.id_matiere
-              JOIN durant d ON n.id_note = d.id_note
-              WHERE o.id_eleve = :id_eleve AND d.id_trimestre = :id_trimestre";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':id_eleve', $id_eleve);
-    $stmt->bindParam(':id_trimestre', $id_trimestre);
-    $stmt->execute();
-    $notes = $stmt->fetchAll();
-
-    $matieres = [];
-    foreach($notes as $note) {
-        $matiere = $note['nom_matiere'];
-        if(!isset($matieres[$matiere])) {
-            $matieres[$matiere] = ['total' => 0, 'count' => 0, 'coef' => $note['coef']];
-        }
-        $matieres[$matiere]['total'] += $note['valeur'];
-        $matieres[$matiere]['count']++;
-    }
-
-    $moyenne_generale = 0;
-    $total_coef = 0;
-    foreach($matieres as $matiere => $data) {
-        $moy = $data['total'] / $data['count'];
-        $moyenne_generale += $moy * $data['coef'];
-        $total_coef += $data['coef'];
-    }
-    if($total_coef > 0) {
-        $moyenne_generale /= $total_coef;
-    }
-
-    return [
-        'eleve' => $eleve,
-        'notes' => $notes,
-        'matieres' => $matieres,
-        'moyenne_generale' => $moyenne_generale
-    ];
 }
 
 $bulletin_data = generateBulletin($db, $eleve_id, $trimestre_id);
